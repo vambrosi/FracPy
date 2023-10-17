@@ -125,8 +125,6 @@ root.geometry("1400x750")
 
 canvas = FigureCanvasTkAgg(fig_wrap.fig, master=root)
 canvas.draw()
-canvas.get_tk_widget().pack(anchor=tk.CENTER, fill=tk.BOTH, expand=True)
-
 
 # FUNCTIONS THAT UPDATE VIEW
 
@@ -183,13 +181,15 @@ def update_color_shift(shift_text):
     mandel.plt.set_data((mandel.img + fig_wrap.color_shift) % 1)
     julia.plt.set_data((julia.img + fig_wrap.color_shift) % 1)
     canvas.draw()
+    canvas.get_tk_widget().focus_set()
 
 
-def update_color_speed(speed_text):
-    fig_wrap.color_speed = np.float64(speed_text)
+def update_color_speed():
+    fig_wrap.color_speed = 1 / (1 << (7 - int(entry_gradient_speed.get())))
     mandel.update_plot()
     julia.update_plot()
     canvas.draw()
+    canvas.get_tk_widget().focus_set()
 
 
 def update_esc_radius(event):
@@ -197,6 +197,7 @@ def update_esc_radius(event):
     mandel.update_plot()
     julia.update_plot()
     canvas.draw()
+    canvas.get_tk_widget().focus_set()
 
 
 def update_max_iter(event):
@@ -204,9 +205,52 @@ def update_max_iter(event):
     mandel.update_plot()
     julia.update_plot()
     canvas.draw()
+    canvas.get_tk_widget().focus_set()
+
+
+# MENU FUNCTIONS
+
+
+def save_fig_mandel():
+    filetypes = [("All Files", "*.*"), ("PNG", "*.png"), ("JPEG Image", "*.jpg")]
+
+    filename = tk.filedialog.asksaveasfilename(
+        initialfile="mandel.png",
+        defaultextension=".png",
+        filetypes=filetypes,
+    )
+    extent = mandel.ax.get_window_extent().transformed(
+        fig_wrap.fig.dpi_scale_trans.inverted()
+    )
+    fig_wrap.fig.savefig(filename, bbox_inches=extent)
+
+
+def save_fig_julia():
+    filetypes = [("All Files", "*.*"), ("PNG", "*.png"), ("JPEG Image", "*.jpg")]
+
+    filename = tk.filedialog.asksaveasfilename(
+        initialfile="julia.png",
+        defaultextension=".png",
+        filetypes=filetypes,
+    )
+    extent = julia.ax.get_window_extent().transformed(
+        fig_wrap.fig.dpi_scale_trans.inverted()
+    )
+    fig_wrap.fig.savefig(filename, bbox_inches=extent)
 
 
 # GUI OBJECTS AND EVENT HANDLERS
+
+canvas.get_tk_widget().pack(anchor=tk.CENTER, fill=tk.BOTH, expand=True)
+
+root.option_add("*tearOff", tk.FALSE)
+menu = tk.Menu(root)
+
+m_file = tk.Menu(menu)
+menu.add_cascade(menu=m_file, label="File")
+m_file.add_command(label="Save Mandelbrot Plot", command=save_fig_mandel)
+m_file.add_command(label="Save Julia Plot", command=save_fig_julia)
+root.config(menu=menu)
 
 label_pointer_x = ttk.Label(root, text="Pointer x-coordinate:")
 label_pointer_x.pack(side=tk.LEFT, padx=5)
@@ -241,15 +285,14 @@ color_shift_slider.pack(side=tk.LEFT, padx=5)
 
 label_gradient_speed = ttk.Label(root, text="Color Gradient Speed:")
 label_gradient_speed.pack(side=tk.LEFT, padx=5)
-gradient_speed = ttk.Scale(
+entry_gradient_speed = ttk.Spinbox(
     root,
-    from_=1 / 512,
-    to=1 / 32,
-    value=fig_wrap.color_speed,
-    length=50,
+    values=[-2, -1, 0, 1, 2],
+    width=50,
     command=update_color_speed,
 )
-gradient_speed.pack(side=tk.LEFT, padx=20)
+entry_gradient_speed.insert(0, 0)
+entry_gradient_speed.pack(side=tk.LEFT, padx=20)
 
 canvas.mpl_connect("key_press_event", shortcut_handler)
 canvas.mpl_connect("motion_notify_event", update_julia_center)
