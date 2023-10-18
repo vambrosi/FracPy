@@ -12,6 +12,7 @@ from numba import jit, vectorize, int64, float64, complex128
 
 # Code that will compute Julia set. (Not the most elegant solution.)
 # We will insert the formula for f(z) in the middle of code1 and code2.
+# We will run a default version below.
 
 code1 = """
 @vectorize([float64(complex128, int64, float64, float64)])
@@ -41,6 +42,30 @@ def julia_plot(z0, delta, image, iters, radius, gradient_speed):
             image[m, n] = color
 """
 
+@vectorize([float64(complex128, int64, float64, float64)])
+def escape_time(z, max_iters, radius_sqr, gradient_speed):
+    i = 0
+    for i in range(max_iters):
+        z = z**2 + 1.0j
+        abs2 = z.real * z.real + z.imag * z.imag
+        if abs2 >= radius_sqr:
+            return gradient_speed * (i + 1 - np.log2(np.log2(abs2) / 2)) % 1
+
+    return np.nan
+
+@jit(nopython=True)
+def julia_plot(z0, delta, image, iters, radius, gradient_speed):
+    height = image.shape[0]
+    width = image.shape[1]
+    radius_sqr = radius**2
+
+    for n in range(width):
+        dx = n * delta
+        for m in range(height):
+            dy = m * delta
+            color = escape_time(z0 + complex(dx, dy), iters, radius_sqr, gradient_speed)
+            image[m, n] = color
+
 
 class FigureWrapper:
     """
@@ -54,7 +79,7 @@ class FigureWrapper:
         self.diam_pxs = 1000
         self.color_shift = 0.0
         self.color_speed = 1 / 128
-        self.fig = Figure(dpi=100, layout="compressed")
+        self.fig = Figure(dpi=175, layout="compressed")
         self.cmap = mpl.colormaps.get_cmap("twilight")
         self.cmap.set_bad(color=self.cmap(0.5))
 
@@ -143,16 +168,6 @@ def close_store(event):
     canvas.draw()
     event.widget.master.destroy()
 
-
-# CREATING GUI AND DISPLAYING RESULTS
-
-root = Tk()
-root.wm_title("FracPy Mandelbrot")
-root.geometry("1400x750")
-
-canvas = FigureCanvasTkAgg(fig_wrap.fig, master=root)
-canvas.draw()
-
 # FUNCTIONS THAT UPDATE VIEW
 
 shortcuts = {"z", "x", "r", "s"}
@@ -226,9 +241,9 @@ def update_max_iter(event):
 def get_formula():
     f_window = Toplevel(root)
     f_window.title("Function for Iteration")
-    Label(f_window, text="f(z) =").pack(side=LEFT, padx=5)
-    f_entry = Entry(f_window, width=100)
-    f_entry.pack(side=LEFT, padx=5)
+    Label(f_window, text="f(z) =").pack(side=LEFT, padx=5, pady=10)
+    f_entry = Entry(f_window, width=60)
+    f_entry.pack(side=LEFT, padx=5, pady=10)
     f_entry.bind("<Return>", close_store)
 
 
@@ -248,7 +263,19 @@ def save_fig_julia():
 
 # GUI OBJECTS AND EVENT HANDLERS
 
-canvas.get_tk_widget().pack(anchor=CENTER, fill=BOTH, expand=True)
+root = Tk()
+root.wm_title("FracPy")
+root.rowconfigure(0, weight=1)
+root.columnconfigure(0, weight=1)
+
+julia = JuliaSetView(julia_plot, fig_wrap.fig.add_subplot(1, 1, 1))
+julia.update_plot()
+
+canvas = FigureCanvasTkAgg(fig_wrap.fig, master=root)
+canvas.get_tk_widget().rowconfigure(0, weight=1)
+canvas.get_tk_widget().columnconfigure(0, weight=1)
+canvas.get_tk_widget().grid(row=0, column=0, columnspan=6)
+canvas.draw()
 
 root.option_add("*tearOff", FALSE)
 menu = Menu(root)
@@ -259,47 +286,50 @@ menu.add_cascade(menu=m_file, label="File")
 m_file.add_command(label="Input Julia set function", command=get_formula)
 m_file.add_command(label="Save Julia plot", command=save_fig_julia)
 
-label_pointer_x = Label(root, text="Pointer x-coordinate:")
-label_pointer_x.pack(side=LEFT, padx=5)
-entry_pointer_x = Entry(root, width=25)
-entry_pointer_x.pack(side=LEFT, padx=5)
+options = Frame(root)
+options.grid(row=1,column=0)
 
-label_pointer_y = Label(root, text="Pointer y-coordinate:")
-label_pointer_y.pack(side=LEFT, padx=5)
-entry_pointer_y = Entry(root, width=25)
-entry_pointer_y.pack(side=LEFT, padx=5)
+label_pointer_x = Label(options, text="Pointer x-coordinate:")
+label_pointer_x.grid(row=0, column=0, padx=5, pady=5)
+entry_pointer_x = Entry(options, width=25)
+entry_pointer_x.grid(row=0, column=1, padx=5, pady=5)
 
-label_esc_radius = Label(root, text="Escape Radius:")
-label_esc_radius.pack(side=LEFT, padx=5)
-entry_esc_radius = Entry(root, width=15)
+label_pointer_y = Label(options, text="Pointer y-coordinate:")
+label_pointer_y.grid(row=1, column=0, padx=5, pady=5)
+entry_pointer_y = Entry(options, width=25)
+entry_pointer_y.grid(row=1, column=1, padx=5, pady=5)
+
+label_esc_radius = Label(options, text="Escape Radius:")
+label_esc_radius.grid(row=0, column=2, padx=5, pady=5)
+entry_esc_radius = Entry(options, width=10)
 entry_esc_radius.insert(0, fig_wrap.esc_radius)
 entry_esc_radius.bind("<Return>", update_esc_radius)
-entry_esc_radius.pack(side=LEFT, padx=5)
+entry_esc_radius.grid(row=0, column=3, padx=5, pady=5)
 
-label_max_iter = Label(root, text="Max Iterations:")
-label_max_iter.pack(side=LEFT, padx=5)
-entry_max_iter = Entry(root, width=10)
+label_max_iter = Label(options, text="Max Iterations:")
+label_max_iter.grid(row=1, column=2, padx=5, pady=5)
+entry_max_iter = Entry(options, width=10)
 entry_max_iter.insert(0, fig_wrap.max_iter)
 entry_max_iter.bind("<Return>", update_max_iter)
-entry_max_iter.pack(side=LEFT, padx=5)
+entry_max_iter.grid(row=1, column=3, padx=5, pady=5)
 
-label_color_shift = Label(root, text="Color Gradient Shift:")
-label_color_shift.pack(side=LEFT, padx=5)
+label_color_shift = Label(options, text="Color Gradient Shift:")
+label_color_shift.grid(row=0, column=4, padx=5, pady=5)
 color_shift_slider = Scale(
-    root, from_=0.0, to=1.0, length=50, command=update_color_shift
+    options, from_=0.0, to=1.0, length=50, command=update_color_shift
 )
-color_shift_slider.pack(side=LEFT, padx=5)
+color_shift_slider.grid(row=0, column=5, padx=5, pady=5)
 
-label_gradient_speed = Label(root, text="Color Gradient Speed:")
-label_gradient_speed.pack(side=LEFT, padx=5)
+label_gradient_speed = Label(options, text="Color Gradient Speed:")
+label_gradient_speed.grid(row=1, column=4, padx=5, pady=5)
 entry_gradient_speed = Spinbox(
-    root,
+    options,
     values=[-2, -1, 0, 1, 2],
-    width=50,
+    width=5,
     command=update_color_speed,
 )
 entry_gradient_speed.insert(0, 0)
-entry_gradient_speed.pack(side=LEFT, padx=20)
+entry_gradient_speed.grid(row=1, column=5, padx=5, pady=5)
 
 canvas.mpl_connect("key_press_event", shortcut_handler)
 canvas.mpl_connect("motion_notify_event", update_julia_center)
