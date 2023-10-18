@@ -1,13 +1,45 @@
 from tkinter import *
 from tkinter.ttk import *
 from tkinter import filedialog
-import numpy as np
 
 import matplotlib as mpl
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
 
-import setplot as sp
+import numpy as np
+from numba import jit, vectorize, int64, float64, complex128
+
+
+# Code that will compute Julia set. (Not the most elegant solution.)
+# We will insert the formula for f(z) in the middle of code1 and code2.
+
+code1 = """
+@vectorize([float64(complex128, int64, float64, float64)])
+def escape_time(z, max_iters, radius_sqr, gradient_speed):
+    i = 0
+    for i in range(max_iters):
+        z = """
+
+code2 = """
+        abs2 = z.real * z.real + z.imag * z.imag
+        if abs2 >= radius_sqr:
+            return gradient_speed * (i + 1 - np.log2(np.log2(abs2) / 2)) % 1
+
+    return np.nan
+
+@jit(nopython=True)
+def julia_plot(z0, delta, image, iters, radius, gradient_speed):
+    height = image.shape[0]
+    width = image.shape[1]
+    radius_sqr = radius**2
+
+    for n in range(width):
+        dx = n * delta
+        for m in range(height):
+            dy = m * delta
+            color = escape_time(z0 + complex(dx, dy), iters, radius_sqr, gradient_speed)
+            image[m, n] = color
+"""
 
 
 class FigureWrapper:
@@ -31,25 +63,19 @@ class FigureWrapper:
         self.esc_radius = 100.0
 
 
-# There should be only one instance of the class above
 fig_wrap = FigureWrapper()
 
 
-class SetView:
+class JuliaSetView:
     """
     Wrapper for plot of a set in the complex plane (Julia or Mandelbrot).
     """
 
-    def __init__(self, set_type, ax) -> None:
+    def __init__(self, julia_plot, ax) -> None:
         # Initialize all settings with default values
-        self.set_type = set_type  # 'mandel' or 'julia'
         self._diam = 4.0  # width of the plot
         self.c = 1.0j  # Parameter for julia (z^2+c)
-
-        if self.set_type == "julia":
-            self._center = 0.0j
-        elif self.set_type == "mandel":
-            self._center = -0.5 + 0.0j
+        self._center = 0.0j
 
         self.delta = self.diam / fig_wrap.diam_pxs
         self.sw = self.center + (self.delta / 2 - self.diam / 2) * (1.0 + 1.0j)
@@ -58,10 +84,10 @@ class SetView:
         self.ax = ax
         self.ax.set_axis_off()
 
-        sp.escape_plot(
-            self.set_type,
+        self.julia_plot = julia_plot
+
+        self.julia_plot(
             self.sw,
-            self.c,
             self.delta,
             self.img,
             fig_wrap.max_iter,
@@ -96,10 +122,8 @@ class SetView:
         """
         Plots the set in self.ax (plot reference is stored in self.plt).
         """
-        sp.escape_plot(
-            self.set_type,
+        self.julia_plot(
             self.sw,
-            self.c,
             self.delta,
             self.img,
             fig_wrap.max_iter,
@@ -109,13 +133,15 @@ class SetView:
         self.plt.set_data((self.img + fig_wrap.color_shift) % 1)
 
 
-# INITIALIZE MANDELBROT AND JULIA PLOTS
+def close_store(event):
+    # julia_plot will be defined in the exec below.
+    exec(code1 + event.widget.get() + code2, globals())
 
-mandel = SetView("mandel", fig_wrap.fig.add_subplot(1, 2, 1))
-julia = SetView("julia", fig_wrap.fig.add_subplot(1, 2, 2))
-
-mandel.update_plot()
-julia.update_plot()
+    global julia
+    julia = JuliaSetView(julia_plot, fig_wrap.fig.add_subplot(1, 1, 1))
+    julia.update_plot()
+    canvas.draw()
+    event.widget.master.destroy()
 
 
 # CREATING GUI AND DISPLAYING RESULTS
@@ -136,7 +162,7 @@ def shortcut_handler(event):
     key = event.key
 
     if key in shortcuts and event.inaxes != None:
-        view = julia if julia.ax == event.inaxes else mandel
+        view = julia
         view.center = view.sw + (
             event.xdata * view.delta + event.ydata * view.delta * 1.0j
         )
@@ -149,25 +175,14 @@ def shortcut_handler(event):
         elif key == "r" and view == julia:  # resets center and diam
             view.center = 0.0j
             view.diam = 4.0
-        elif key == "r" and view == mandel:  # resets center and diam
-            view.center = -0.5 + 0.0j
-            view.diam = 4.0
 
         view.update_plot()
-        canvas.draw()
-
-    elif key == "c" and event.inaxes == mandel.ax:
-        julia.c = mandel.sw + (
-            event.xdata * mandel.delta + event.ydata * mandel.delta * 1.0j
-        )
-
-        julia.update_plot()
         canvas.draw()
 
 
 def update_julia_center(event):
     if event.inaxes != None:
-        view = julia if julia.ax == event.inaxes else mandel
+        view = julia
 
         pointer = view.sw + (event.xdata * view.delta + event.ydata * view.delta * 1.0j)
 
@@ -179,7 +194,6 @@ def update_julia_center(event):
 
 def update_color_shift(shift_text):
     fig_wrap.color_shift = np.float64(shift_text)
-    mandel.plt.set_data((mandel.img + fig_wrap.color_shift) % 1)
     julia.plt.set_data((julia.img + fig_wrap.color_shift) % 1)
     canvas.draw()
     canvas.get_tk_widget().focus_set()
@@ -187,7 +201,6 @@ def update_color_shift(shift_text):
 
 def update_color_speed():
     fig_wrap.color_speed = 1 / (1 << (7 - int(entry_gradient_speed.get())))
-    mandel.update_plot()
     julia.update_plot()
     canvas.draw()
     canvas.get_tk_widget().focus_set()
@@ -195,7 +208,6 @@ def update_color_speed():
 
 def update_esc_radius(event):
     fig_wrap.esc_radius = np.float64(event.widget.get())
-    mandel.update_plot()
     julia.update_plot()
     canvas.draw()
     canvas.get_tk_widget().focus_set()
@@ -203,7 +215,6 @@ def update_esc_radius(event):
 
 def update_max_iter(event):
     fig_wrap.max_iter = np.int64(event.widget.get())
-    mandel.update_plot()
     julia.update_plot()
     canvas.draw()
     canvas.get_tk_widget().focus_set()
@@ -212,18 +223,13 @@ def update_max_iter(event):
 # MENU FUNCTIONS
 
 
-def save_fig_mandel():
-    filetypes = [("All Files", "*.*"), ("PNG", "*.png"), ("JPEG Image", "*.jpg")]
-
-    filename = filedialog.asksaveasfilename(
-        initialfile="mandel.png",
-        defaultextension=".png",
-        filetypes=filetypes,
-    )
-    extent = mandel.ax.get_window_extent().transformed(
-        fig_wrap.fig.dpi_scale_trans.inverted()
-    )
-    fig_wrap.fig.savefig(filename, bbox_inches=extent)
+def get_formula():
+    f_window = Toplevel(root)
+    f_window.title("Function for Iteration")
+    Label(f_window, text="f(z) =").pack(side=LEFT, padx=5)
+    f_entry = Entry(f_window, width=100)
+    f_entry.pack(side=LEFT, padx=5)
+    f_entry.bind("<Return>", close_store)
 
 
 def save_fig_julia():
@@ -250,7 +256,7 @@ root.config(menu=menu)
 
 m_file = Menu(menu)
 menu.add_cascade(menu=m_file, label="File")
-m_file.add_command(label="Save Mandelbrot plot", command=save_fig_mandel)
+m_file.add_command(label="Input Julia set function", command=get_formula)
 m_file.add_command(label="Save Julia plot", command=save_fig_julia)
 
 label_pointer_x = Label(root, text="Pointer x-coordinate:")
@@ -297,4 +303,5 @@ entry_gradient_speed.pack(side=LEFT, padx=20)
 
 canvas.mpl_connect("key_press_event", shortcut_handler)
 canvas.mpl_connect("motion_notify_event", update_julia_center)
+
 mainloop()
