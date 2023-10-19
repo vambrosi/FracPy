@@ -136,6 +136,7 @@ def shortcut_handler(event):
     key = event.key
 
     if key in shortcuts and event.inaxes != None:
+        canvas.get_tk_widget().config(cursor="watch")
         view = julia if julia.ax == event.inaxes else mandel
         view.center = view.sw + (
             event.xdata * view.delta + event.ydata * view.delta * 1.0j
@@ -155,14 +156,18 @@ def shortcut_handler(event):
 
         view.update_plot()
         canvas.draw()
+        canvas.get_tk_widget().config(cursor="")
+
 
     elif key == "c" and event.inaxes == mandel.ax:
+        canvas.get_tk_widget().config(cursor="watch")
         julia.c = mandel.sw + (
             event.xdata * mandel.delta + event.ydata * mandel.delta * 1.0j
         )
 
         julia.update_plot()
         canvas.draw()
+        canvas.get_tk_widget().config(cursor="")
 
 
 def update_julia_center(event):
@@ -186,26 +191,32 @@ def update_color_shift(shift_text):
 
 
 def update_color_speed():
+    canvas.get_tk_widget().config(cursor="watch")
     fig_wrap.color_speed = 1 / (1 << (7 - int(entry_gradient_speed.get())))
     mandel.update_plot()
     julia.update_plot()
     canvas.draw()
+    canvas.get_tk_widget().config(cursor="")
     canvas.get_tk_widget().focus_set()
 
 
 def update_esc_radius(event):
+    canvas.get_tk_widget().config(cursor="watch")
     fig_wrap.esc_radius = np.float64(event.widget.get())
     mandel.update_plot()
     julia.update_plot()
     canvas.draw()
+    canvas.get_tk_widget().config(cursor="")
     canvas.get_tk_widget().focus_set()
 
 
 def update_max_iter(event):
+    canvas.get_tk_widget().config(cursor="watch")
     fig_wrap.max_iter = np.int64(event.widget.get())
     mandel.update_plot()
     julia.update_plot()
     canvas.draw()
+    canvas.get_tk_widget().config(cursor="")
     canvas.get_tk_widget().focus_set()
 
 

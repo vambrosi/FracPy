@@ -7,8 +7,12 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
 
 import numpy as np
+from numpy import sin, cos, tan, exp, log
 from numba import jit, vectorize, int64, float64, complex128
 
+import re
+
+I = 1.0j
 
 # Code that will compute Julia set. (Not the most elegant solution.)
 # We will insert the formula for f(z) in the middle of code1 and code2.
@@ -159,13 +163,29 @@ class JuliaSetView:
 
 
 def close_store(event):
-    # julia_plot will be defined in the exec below.
-    exec(code1 + event.widget.get() + code2, globals())
+    root.config(cursor="watch")
+    # Gets the formula for f(z)
+    f = event.widget.get()
+
+    # Makes usual math notation legible by python
+    f = f.replace("i", "I")
+    f = re.sub("[0-9.]+I", lambda matchobj: f"{matchobj.group(0)[:-1]}*I", f)
+    f = re.sub("[0-9.]+z", lambda matchobj: f"{matchobj.group(0)[:-1]}*z", f)
+    f = f.replace("^", "**")
+    f = f.replace("Iz", "I*z")
+    f = f.replace(")z", ")*z")
+    f = f.replace(")I", ")*I")
+    f = f.replace("I(", "I*(")
+    f = f.replace("z(", "z*(")
+
+    # Defines julia_plot and escape_time using f(z)
+    exec(code1 + f + code2, globals())
 
     global julia
     julia = JuliaSetView(julia_plot, fig_wrap.fig.add_subplot(1, 1, 1))
     julia.update_plot()
     canvas.draw()
+    root.config(cursor="")
     event.widget.master.destroy()
 
 # FUNCTIONS THAT UPDATE VIEW
@@ -177,6 +197,7 @@ def shortcut_handler(event):
     key = event.key
 
     if key in shortcuts and event.inaxes != None:
+        canvas.get_tk_widget().config(cursor="watch")
         view = julia
         view.center = view.sw + (
             event.xdata * view.delta + event.ydata * view.delta * 1.0j
@@ -193,6 +214,7 @@ def shortcut_handler(event):
 
         view.update_plot()
         canvas.draw()
+        canvas.get_tk_widget().config(cursor="")
 
 
 def update_julia_center(event):
@@ -215,23 +237,30 @@ def update_color_shift(shift_text):
 
 
 def update_color_speed():
+    canvas.get_tk_widget().config(cursor="watch")
+    root.update()
     fig_wrap.color_speed = 1 / (1 << (7 - int(entry_gradient_speed.get())))
     julia.update_plot()
     canvas.draw()
+    canvas.get_tk_widget().config(cursor="")
     canvas.get_tk_widget().focus_set()
 
 
 def update_esc_radius(event):
+    canvas.get_tk_widget().config(cursor="watch")
     fig_wrap.esc_radius = np.float64(event.widget.get())
     julia.update_plot()
     canvas.draw()
+    canvas.get_tk_widget().config(cursor="")
     canvas.get_tk_widget().focus_set()
 
 
 def update_max_iter(event):
+    canvas.get_tk_widget().config(cursor="watch")
     fig_wrap.max_iter = np.int64(event.widget.get())
     julia.update_plot()
     canvas.draw()
+    canvas.get_tk_widget().config(cursor="")
     canvas.get_tk_widget().focus_set()
 
 
