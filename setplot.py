@@ -1,5 +1,5 @@
 import numpy as np
-from numba import jit, vectorize, int64, float64, complex128
+from numba import jit, vectorize, prange, int64, float64, complex128
 
 
 @vectorize([float64(complex128, complex128, int64, float64, float64)])
@@ -20,9 +20,9 @@ def mandelbrot(z0, delta, image, iters, radius, gradient_speed):
     width = image.shape[1]
     radius_sqr = radius**2
 
-    for n in range(width):
+    for n in prange(width):
         dx = n * delta
-        for m in range(height):
+        for m in prange(height):
             dy = m * delta
             color = escape_time(
                 0.0j, z0 + complex(dx, dy), iters, radius_sqr, gradient_speed
@@ -36,9 +36,9 @@ def julia(z0, c, delta, image, iters, radius, gradient_speed):
     width = image.shape[1]
     radius_sqr = radius**2
 
-    for n in range(width):
+    for n in prange(width):
         dx = n * delta
-        for m in range(height):
+        for m in prange(height):
             dy = m * delta
             color = escape_time(
                 z0 + complex(dx, dy), c, iters, radius_sqr, gradient_speed

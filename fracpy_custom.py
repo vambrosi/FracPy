@@ -8,7 +8,7 @@ from matplotlib.figure import Figure
 
 import numpy as np
 from numpy import sin, cos, tan, exp, log
-from numba import jit, vectorize, int64, float64, complex128
+from numba import jit, vectorize, prange, int64, float64, complex128
 
 import re
 import os
@@ -43,9 +43,9 @@ def julia_plot(z0, delta, image, iters, radius, gradient_speed):
     width = image.shape[1]
     radius_sqr = radius**2
 
-    for n in range(width):
+    for n in prange(width):
         dx = n * delta
-        for m in range(height):
+        for m in prange(height):
             dy = m * delta
             color = escape_time(z0 + complex(dx, dy), iters, radius_sqr, gradient_speed)
             image[m, n] = color
@@ -68,9 +68,9 @@ def julia_plot(z0, delta, image, iters, radius, gradient_speed):
     width = image.shape[1]
     radius_sqr = radius**2
 
-    for n in range(width):
+    for n in prange(width):
         dx = n * delta
-        for m in range(height):
+        for m in prange(height):
             dy = m * delta
             color = escape_time(z0 + complex(dx, dy), iters, radius_sqr, gradient_speed)
             image[m, n] = color
