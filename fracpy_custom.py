@@ -37,7 +37,7 @@ code2 = """
 
     return np.nan
 
-@jit(nopython=True)
+@jit(nopython=True, parallel=True)
 def julia_plot(z0, delta, image, iters, radius, gradient_speed):
     height = image.shape[0]
     width = image.shape[1]
@@ -62,7 +62,7 @@ def escape_time(z, max_iters, radius_sqr, gradient_speed):
 
     return np.nan
 
-@jit(nopython=True)
+@jit(nopython=True, parallel=True)
 def julia_plot(z0, delta, image, iters, radius, gradient_speed):
     height = image.shape[0]
     width = image.shape[1]

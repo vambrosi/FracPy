@@ -14,7 +14,7 @@ def escape_time(z, c, max_iters, radius_sqr, gradient_speed):
     return np.nan
 
 
-@jit(nopython=True)
+@jit(nopython=True, parallel=True)
 def mandelbrot(z0, delta, image, iters, radius, gradient_speed):
     height = image.shape[0]
     width = image.shape[1]
@@ -30,7 +30,7 @@ def mandelbrot(z0, delta, image, iters, radius, gradient_speed):
             image[m, n] = color
 
 
-@jit(nopython=True)
+@jit(nopython=True, parallel=True)
 def julia(z0, c, delta, image, iters, radius, gradient_speed):
     height = image.shape[0]
     width = image.shape[1]
