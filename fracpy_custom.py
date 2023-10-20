@@ -11,6 +11,11 @@ from numpy import sin, cos, tan, exp, log
 from numba import jit, vectorize, int64, float64, complex128
 
 import re
+import os
+
+if os.name == 'nt':
+    from ctypes import windll
+    windll.shcore.SetProcessDpiAwareness(2)
 
 I = 1.0j
 
@@ -168,7 +173,7 @@ def close_store(event):
     f = event.widget.get()
 
     # Makes usual math notation legible by python
-    f = f.replace("i", "I")
+
     f = re.sub("[0-9.]+I", lambda matchobj: f"{matchobj.group(0)[:-1]}*I", f)
     f = re.sub("[0-9.]+z", lambda matchobj: f"{matchobj.group(0)[:-1]}*z", f)
     f = f.replace("^", "**")
