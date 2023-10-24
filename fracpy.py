@@ -73,7 +73,7 @@ class SetView:
             self.img, cmap=fig_wrap.cmap, origin="lower", interpolation_stage="rgba"
         )
 
-        self.orbit_plt, = self.ax.plot([], [], "ro-", alpha=0.75)
+        (self.orbit_plt,) = self.ax.plot([], [], "ro-", linewidth=1, alpha=0.75)
         self.z_iter = 20
 
     @property
@@ -158,8 +158,8 @@ def shortcut_handler(event):
             view.diam = 4.0
 
         view.update_plot()
-        if view==julia and hasattr(julia, "zs"):
-            zs = (julia.zs[:julia.z_iter] - julia.sw) / julia.delta
+        if view == julia and hasattr(julia, "zs"):
+            zs = (julia.zs[: julia.z_iter] - julia.sw) / julia.delta
             julia.orbit_plt.set_data(zs.real, zs.imag)
         canvas.draw()
         canvas.get_tk_widget().config(cursor="")
@@ -182,8 +182,8 @@ def shortcut_handler(event):
     elif key == "t" and event.inaxes == julia.ax:
         z = julia.sw + (event.xdata * julia.delta + event.ydata * julia.delta * 1.0j)
 
-        julia.zs = sp.orbit(z, julia.c, fig_wrap.max_iter, 256)
-        zs = (julia.zs[:julia.z_iter] - julia.sw) / julia.delta
+        julia.zs = sp.orbit(z, julia.c, fig_wrap.max_iter, fig_wrap.esc_radius)
+        zs = (julia.zs[: julia.z_iter] - julia.sw) / julia.delta
         julia.orbit_plt.set_data(zs.real, zs.imag)
 
         canvas.draw()
@@ -245,11 +245,12 @@ def update_max_iter(event):
     canvas.get_tk_widget().config(cursor="")
     canvas.get_tk_widget().focus_set()
 
+
 def update_z_iter(*args):
     canvas.get_tk_widget().config(cursor="watch")
     julia.z_iter = int(entry_z_iter.get())
     if hasattr(julia, "zs"):
-        zs = (julia.zs[:julia.z_iter] - julia.sw) / julia.delta
+        zs = (julia.zs[: julia.z_iter] - julia.sw) / julia.delta
         julia.orbit_plt.set_data(zs.real, zs.imag)
     canvas.draw()
     canvas.get_tk_widget().config(cursor="")
@@ -345,7 +346,7 @@ entry_gradient_speed.pack(side=LEFT, padx=5)
 Label(root, text="Point Iterations:").pack(side=LEFT, padx=5)
 entry_z_iter = Spinbox(
     root,
-    values=list(range(256)),
+    values=list(range(fig_wrap.max_iter)),
     width=5,
     command=update_z_iter,
 )

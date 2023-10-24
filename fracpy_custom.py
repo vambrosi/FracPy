@@ -13,8 +13,9 @@ from numba import jit, vectorize, prange, int64, float64, complex128
 import re
 import os
 
-if os.name == 'nt':
+if os.name == "nt":
     from ctypes import windll
+
     windll.shcore.SetProcessDpiAwareness(2)
 
 I = 1.0j
@@ -51,6 +52,21 @@ def julia_plot(z0, delta, image, iters, radius, gradient_speed):
             image[m, n] = color
 """
 
+code3 = """@jit(nopython=True)
+def orbit(z, max_iter, radius):
+    iterates = np.zeros(max_iter, dtype=np.complex128)
+    for i in range(max_iter):
+        iterates[i] = z
+        z ="""
+
+code4 = """
+        if np.abs(z) >= radius:
+            iterates = iterates[:i]
+            break
+
+    return iterates"""
+
+
 @vectorize([float64(complex128, int64, float64, float64)])
 def escape_time(z, max_iters, radius_sqr, gradient_speed):
     i = 0
@@ -61,6 +77,7 @@ def escape_time(z, max_iters, radius_sqr, gradient_speed):
             return gradient_speed * (i + 1 - np.log2(np.log2(abs2) / 2)) % 1
 
     return np.nan
+
 
 @jit(nopython=True, parallel=True)
 def julia_plot(z0, delta, image, iters, radius, gradient_speed):
@@ -74,6 +91,19 @@ def julia_plot(z0, delta, image, iters, radius, gradient_speed):
             dy = m * delta
             color = escape_time(z0 + complex(dx, dy), iters, radius_sqr, gradient_speed)
             image[m, n] = color
+
+
+@jit(nopython=True)
+def orbit(z, max_iter, radius):
+    iterates = np.zeros(max_iter, dtype=np.complex128)
+    for i in range(max_iter):
+        iterates[i] = z
+        z = z**2 + 1.0j
+        if np.abs(z) >= radius:
+            iterates = iterates[:i]
+            break
+
+    return iterates
 
 
 class FigureWrapper:
@@ -133,6 +163,9 @@ class JuliaSetView:
             self.img, cmap=fig_wrap.cmap, origin="lower", interpolation_stage="rgba"
         )
 
+        (self.orbit_plt,) = self.ax.plot([], [], "ro-", alpha=0.75)
+        self.z_iter = 20
+
     @property
     def diam(self) -> float:
         return self._diam
@@ -185,6 +218,7 @@ def close_store(event):
 
     # Defines julia_plot and escape_time using f(z)
     exec(code1 + f + code2, globals())
+    exec(code3 + f + code4, globals())
 
     global julia
     julia = JuliaSetView(julia_plot, fig_wrap.fig.add_subplot(1, 1, 1))
@@ -192,6 +226,7 @@ def close_store(event):
     canvas.draw()
     root.config(cursor="")
     event.widget.master.destroy()
+
 
 # FUNCTIONS THAT UPDATE VIEW
 
@@ -203,30 +238,48 @@ def shortcut_handler(event):
 
     if key in shortcuts and event.inaxes != None:
         canvas.get_tk_widget().config(cursor="watch")
-        view = julia
-        view.center = view.sw + (
-            event.xdata * view.delta + event.ydata * view.delta * 1.0j
+        julia.center = julia.sw + (
+            event.xdata * julia.delta + event.ydata * julia.delta * 1.0j
         )
 
         # 's' is not listed because it doesn't change center or diam
         if key == "z":  # zooms in
-            view.diam /= 2
+            julia.diam /= 2
         elif key == "x":  # zooms out
-            view.diam *= 2
-        elif key == "r" and view == julia:  # resets center and diam
-            view.center = 0.0j
-            view.diam = 4.0
+            julia.diam *= 2
+        elif key == "r":  # resets center and diam
+            julia.center = 0.0j
+            julia.diam = 4.0
 
-        view.update_plot()
+        julia.update_plot()
+        if hasattr(julia, "zs"):
+            zs = (julia.zs[: julia.z_iter] - julia.sw) / julia.delta
+            julia.orbit_plt.set_data(zs.real, zs.imag)
+
         canvas.draw()
         canvas.get_tk_widget().config(cursor="")
+
+    elif key == "t" and event.inaxes != None:
+        z = julia.sw + (event.xdata * julia.delta + event.ydata * julia.delta * 1.0j)
+
+        julia.zs = orbit(z, fig_wrap.max_iter, fig_wrap.esc_radius)
+        zs = (julia.zs[: julia.z_iter] - julia.sw) / julia.delta
+        julia.orbit_plt.set_data(zs.real, zs.imag)
+
+        canvas.draw()
+
+    elif key == "d":
+        if hasattr(julia, "zs"):
+            delattr(julia, "zs")
+            julia.orbit_plt.set_data([], [])
+            canvas.draw()
 
 
 def update_julia_center(event):
     if event.inaxes != None:
-        view = julia
-
-        pointer = view.sw + (event.xdata * view.delta + event.ydata * view.delta * 1.0j)
+        pointer = julia.sw + (
+            event.xdata * julia.delta + event.ydata * julia.delta * 1.0j
+        )
 
         entry_pointer_x.delete(0, END)
         entry_pointer_x.insert(0, pointer.real)
@@ -264,6 +317,17 @@ def update_max_iter(event):
     canvas.get_tk_widget().config(cursor="watch")
     fig_wrap.max_iter = np.int64(event.widget.get())
     julia.update_plot()
+    canvas.draw()
+    canvas.get_tk_widget().config(cursor="")
+    canvas.get_tk_widget().focus_set()
+
+
+def update_z_iter(*args):
+    canvas.get_tk_widget().config(cursor="watch")
+    julia.z_iter = int(entry_z_iter.get())
+    if hasattr(julia, "zs"):
+        zs = (julia.zs[: julia.z_iter] - julia.sw) / julia.delta
+        julia.orbit_plt.set_data(zs.real, zs.imag)
     canvas.draw()
     canvas.get_tk_widget().config(cursor="")
     canvas.get_tk_widget().focus_set()
@@ -308,7 +372,7 @@ julia.update_plot()
 canvas = FigureCanvasTkAgg(fig_wrap.fig, master=root)
 canvas.get_tk_widget().rowconfigure(0, weight=1)
 canvas.get_tk_widget().columnconfigure(0, weight=1)
-canvas.get_tk_widget().grid(row=0, column=0, columnspan=6)
+canvas.get_tk_widget().grid(row=0, column=0, columnspan=8)
 canvas.draw()
 
 root.option_add("*tearOff", FALSE)
@@ -321,7 +385,7 @@ m_file.add_command(label="Input Julia set function", command=get_formula)
 m_file.add_command(label="Save Julia plot", command=save_fig_julia)
 
 options = Frame(root)
-options.grid(row=1,column=0)
+options.grid(row=1, column=0)
 
 label_pointer_x = Label(options, text="Pointer x-coordinate:")
 label_pointer_x.grid(row=0, column=0, padx=5, pady=5)
@@ -364,6 +428,17 @@ entry_gradient_speed = Spinbox(
 )
 entry_gradient_speed.insert(0, 0)
 entry_gradient_speed.grid(row=1, column=5, padx=5, pady=5)
+
+Label(options, text="Point Iterations:").grid(row=0, column=6, padx=5, pady=5)
+entry_z_iter = Spinbox(
+    options,
+    values=list(range(fig_wrap.max_iter)),
+    width=5,
+    command=update_z_iter,
+)
+entry_z_iter.insert(0, 20)
+entry_z_iter.grid(row=0, column=7, padx=5, pady=5)
+entry_z_iter.bind("<Return>", update_z_iter)
 
 canvas.mpl_connect("key_press_event", shortcut_handler)
 canvas.mpl_connect("motion_notify_event", update_julia_center)
