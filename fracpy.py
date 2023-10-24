@@ -142,7 +142,7 @@ def shortcut_handler(event):
             event.xdata * view.delta + event.ydata * view.delta * 1.0j
         )
 
-        # 's' is not listed because it doesn't change center or diam
+        # 's' is not listed because it doesn't change diam
         if key == "z":  # zooms in
             view.diam /= 2
         elif key == "x":  # zooms out
