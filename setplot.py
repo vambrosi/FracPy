@@ -1,6 +1,17 @@
 import numpy as np
 from numba import jit, vectorize, prange, int64, float64, complex128
 
+@jit(nopython=True)
+def orbit(z, c, max_iter, radius):
+    iterates = np.zeros(max_iter, dtype=np.complex128)
+    for i in range(max_iter):
+        iterates[i] = z
+        z = z*z + c
+        if np.abs(z) >= radius:
+            iterates = iterates[:i]
+            break
+
+    return iterates
 
 @vectorize([float64(complex128, complex128, int64, float64, float64)])
 def escape_time(z, c, max_iters, radius_sqr, gradient_speed):

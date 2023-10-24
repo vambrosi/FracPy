@@ -73,6 +73,9 @@ class SetView:
             self.img, cmap=fig_wrap.cmap, origin="lower", interpolation_stage="rgba"
         )
 
+        self.orbit_plt, = self.ax.plot([], [], "ro-", alpha=0.75)
+        self.z_iter = 20
+
     @property
     def diam(self) -> float:
         return self._diam
@@ -122,7 +125,7 @@ julia.update_plot()
 
 root = Tk()
 root.wm_title("FracPy Mandelbrot")
-root.geometry("1400x750")
+root.geometry("1500x750")
 
 canvas = FigureCanvasTkAgg(fig_wrap.fig, master=root)
 canvas.draw()
@@ -155,9 +158,11 @@ def shortcut_handler(event):
             view.diam = 4.0
 
         view.update_plot()
+        if view==julia and hasattr(julia, "zs"):
+            zs = (julia.zs[:julia.z_iter] - julia.sw) / julia.delta
+            julia.orbit_plt.set_data(zs.real, zs.imag)
         canvas.draw()
         canvas.get_tk_widget().config(cursor="")
-
 
     elif key == "c" and event.inaxes == mandel.ax:
         canvas.get_tk_widget().config(cursor="watch")
@@ -166,8 +171,29 @@ def shortcut_handler(event):
         )
 
         julia.update_plot()
+
+        if hasattr(julia, "zs"):
+            delattr(julia, "zs")
+            julia.orbit_plt.set_data([], [])
+
         canvas.draw()
         canvas.get_tk_widget().config(cursor="")
+
+    elif key == "t" and event.inaxes == julia.ax:
+        z = julia.sw + (event.xdata * julia.delta + event.ydata * julia.delta * 1.0j)
+
+        julia.zs = sp.orbit(z, julia.c, fig_wrap.max_iter, 256)
+        zs = (julia.zs[:julia.z_iter] - julia.sw) / julia.delta
+        julia.orbit_plt.set_data(zs.real, zs.imag)
+
+        canvas.draw()
+
+    elif key == "d" and event.inaxes == julia.ax:
+        if hasattr(julia, "zs"):
+            delattr(julia, "zs")
+            julia.orbit_plt.set_data([], [])
+
+        canvas.draw()
 
 
 def update_julia_center(event):
@@ -215,6 +241,16 @@ def update_max_iter(event):
     fig_wrap.max_iter = np.int64(event.widget.get())
     mandel.update_plot()
     julia.update_plot()
+    canvas.draw()
+    canvas.get_tk_widget().config(cursor="")
+    canvas.get_tk_widget().focus_set()
+
+def update_z_iter(*args):
+    canvas.get_tk_widget().config(cursor="watch")
+    julia.z_iter = int(entry_z_iter.get())
+    if hasattr(julia, "zs"):
+        zs = (julia.zs[:julia.z_iter] - julia.sw) / julia.delta
+        julia.orbit_plt.set_data(zs.real, zs.imag)
     canvas.draw()
     canvas.get_tk_widget().config(cursor="")
     canvas.get_tk_widget().focus_set()
@@ -300,11 +336,22 @@ label_gradient_speed.pack(side=LEFT, padx=5)
 entry_gradient_speed = Spinbox(
     root,
     values=[-2, -1, 0, 1, 2],
-    width=50,
+    width=5,
     command=update_color_speed,
 )
 entry_gradient_speed.insert(0, 0)
-entry_gradient_speed.pack(side=LEFT, padx=20)
+entry_gradient_speed.pack(side=LEFT, padx=5)
+
+Label(root, text="Point Iterations:").pack(side=LEFT, padx=5)
+entry_z_iter = Spinbox(
+    root,
+    values=list(range(256)),
+    width=5,
+    command=update_z_iter,
+)
+entry_z_iter.insert(0, 20)
+entry_z_iter.pack(side=LEFT, padx=5)
+entry_z_iter.bind("<Return>", update_z_iter)
 
 canvas.mpl_connect("key_press_event", shortcut_handler)
 canvas.mpl_connect("motion_notify_event", update_julia_center)
