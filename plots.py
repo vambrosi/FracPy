@@ -19,7 +19,7 @@ class FigureWrapper:
         self.height_pxs = 1000
         self.color_shift = 0.0
         self.color_speed = 4
-        self.fig = Figure(figsize=(20,10), layout="compressed")
+        self.fig = Figure(figsize=(20, 10), layout="compressed")
         self.cmap = mpl.colormaps.get_cmap("twilight")
         self.cmap.set_bad(color=self.cmap(0.5))
 
@@ -39,10 +39,10 @@ class SetView:
         self.diam = 4.0  # width of the plot
 
         if c_space:
-            self.center = -0.5 + 0.0j
+            self.init_center = -0.5 + 0.0j
             self.c = 0.0j
         else:
-            self.center = 0.0j
+            self.init_center = 0.0j
             self.c = 1.0j
 
         self.f = to_function(expr)
@@ -72,6 +72,15 @@ class SetView:
             interpolation_stage="rgba",
         )
 
+    @property
+    def init_center(self):
+        return self._init_center
+
+    @init_center.setter
+    def init_center(self, center):
+        self._init_center = center
+        self.center = center
+
     def update_plot(self, all=True):
         """
         Plots the set in self.ax (plot reference is stored in self.plt).
@@ -88,8 +97,7 @@ class SetView:
         )
 
         self.plt.set_data(
-            (self.fig_wrap.color_speed * self.img + self.fig_wrap.color_shift)
-            % 1
+            (self.fig_wrap.color_speed * self.img + self.fig_wrap.color_shift) % 1
         )
 
     def pointer_z(self, xdata, ydata):

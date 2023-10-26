@@ -6,11 +6,13 @@ import numpy as np
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 from plots import FigureWrapper, SetView
-from dynamics import to_function
+from dynamics import to_function, parse
 
-if os.name == 'nt':
+if os.name == "nt":
     from ctypes import windll
+
     windll.shcore.SetProcessDpiAwareness(2)
+
 
 class App(Tk):
     def __init__(self):
@@ -106,30 +108,53 @@ class App(Tk):
     def get_formula(self):
         f_window = Toplevel(self)
         f_window.title("Input 1-parameter family of functions")
-        Label(f_window, text="f(z, C) =").pack(side=LEFT, padx=5, pady=10)
-        f_entry = Entry(f_window, width=60)
+
+        Label(f_window, text="f(z, C) =").grid(row=0, column=0, padx=5, pady=5)
+        f_entry = Entry(f_window, width=80)
         f_entry.insert(0, "z^2 + C")
-        f_entry.pack(side=LEFT, padx=5, pady=10)
+        f_entry.grid(row=0, column=1, columnspan=5, padx=5, pady=10)
 
-        def close_store(event):
-            self.config(cursor="watch")
-            expr = event.widget.get()
+        Label(f_window, text="Initial C:").grid(row=1, column=0, padx=5, pady=5)
+        c_entry = Entry(f_window, width=10)
+        c_entry.insert(0, "I")
+        c_entry.grid(row=1, column=1, padx=5, pady=5)
+
+        Label(f_window, text="Bifurcation locus center:").grid(
+            row=1, column=2, padx=5, pady=10
+        )
+        mandel_center_entry = Entry(f_window, width=10)
+        mandel_center_entry.insert(0, "-0.5")
+        mandel_center_entry.grid(row=1, column=3, padx=5, pady=5)
+
+        Label(f_window, text="Filled Julia set center:").grid(
+            row=1, column=4, padx=5, pady=10
+        )
+        julia_center_entry = Entry(f_window, width=10)
+        julia_center_entry.insert(0, "0.0")
+        julia_center_entry.grid(row=1, column=5, padx=5, pady=5)
+
+        def close_store(*args):
+            expr = f_entry.get()
             self.mandel.f = to_function(expr)
-            self.mandel.center = 0.0 + 0.0j
-            self.mandel.diam = 4
+            self.mandel.init_center = eval(parse(mandel_center_entry.get()))
+            self.mandel.diam = 4.0
             self.julia.f = to_function(expr)
-            self.julia.center = 0.0 + 0.0j
-            self.julia.diam = 4
-            self.julia.c = 1.0 + 0.0j
+            self.julia.init_center = eval(parse(julia_center_entry.get()))
+            self.julia.diam = 4.0
+            self.julia.c = eval(parse(c_entry.get()))
 
+            self.config(cursor="watch")
             self.julia.update_plot()
             self.mandel.update_plot()
             self.canvas.draw()
             self.config(cursor="")
-            event.widget.master.destroy()
+            f_window.destroy()
 
-        f_entry.bind("<Return>", close_store)
+        f_window.bind("<Return>", close_store)
 
+        Button(f_window, text="Plot sets", command=close_store).grid(
+            row=2, column=0, columnspan=6, pady=5
+        )
 
     def shortcut_handler(self, event):
         key = event.key
@@ -142,17 +167,17 @@ class App(Tk):
             # 's' is not listed because it doesn't change center or diam
             if key == "z":  # zooms in
                 view.diam /= 2
-                view.center = pointer
+                view.center = 0.5 * view.center + 0.5 * pointer
             elif key == "x":  # zooms out
                 view.diam *= 2
-                view.center = pointer
+                view.center = 2 * view.center - pointer
             elif key == "s":  # zooms out
                 view.center = pointer
             elif key == "r" and view == self.julia:  # resets center and diam
-                view.center = 0.0j
+                view.center = view.init_center
                 view.diam = 4.0
             elif key == "r" and view == self.mandel:  # resets center and diam
-                view.center = -0.5 + 0.0j
+                view.center = view.init_center
                 view.diam = 4.0
 
             view.update_plot()

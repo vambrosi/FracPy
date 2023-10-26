@@ -6,7 +6,29 @@ from numba import jit, prange, complex128
 
 from sympy.utilities.lambdify import NUMPY_TRANSLATIONS
 
-NUMPY_TRANSLATIONS["zoo"] = "nan"
+
+def parse(expr):
+    """
+    Takes an expression using usual math conventions and outputs an expression
+    using python math conventions.
+    """
+    # Add explicity multiplications to match python conventions
+
+    # The cases below add product symbols to products of variables, constants,
+    # functions or parentheses.
+
+    res = re.sub(
+        "[0-9.]+[A-Za-z\(]", lambda x: f"{x.group(0)[:-1]}*{x.group(0)[-1]}", expr
+    )
+    res = re.sub("[zCI][A-Za-z\(]", lambda x: f"{x.group(0)[0]}*{x.group(0)[1]}", res)
+    res = re.sub("[A-Za-z\)][zCI]", lambda x: f"{x.group(0)[0]}*{x.group(0)[1]}", res)
+    res = res.replace(")(", ")*(")
+
+    # Change power notation to match python conventions.
+    res = res.replace("^", "**")
+    res = res.replace("I", "1.0j")
+
+    return res
 
 
 def to_function(expr: str):
@@ -15,26 +37,10 @@ def to_function(expr: str):
     be in the variable z, and can contain a parameter C.
     """
 
-    # Add explicity multiplications to match python conventions
-
-    # The cases below add product symbols to products of variables, constants,
-    # functions or parentheses.
-
-    expr = re.sub(
-        "[0-9.]+[A-Za-z\(]", lambda x: f"{x.group(0)[:-1]}*{x.group(0)[-1]}", expr
-    )
-    expr = re.sub("[zCI][A-Za-z\(]", lambda x: f"{x.group(0)[0]}*{x.group(0)[1]}", expr)
-    expr = re.sub("[A-Za-z\)][zCI]", lambda x: f"{x.group(0)[0]}*{x.group(0)[1]}", expr)
-    expr = expr.replace(")(", ")*(")
-
-    # Change power notation to match python conventions.
-    expr = expr.replace("^", "**")
-
     # This definition and imports will be used only in the lambdify below
-    I = 1.0j
     from numpy import sin, cos, tan, exp, log, log10, log2, sinh, cosh, tanh
 
-    return jit(nopython=True)(lambdify(["z", "C"], expr, "numpy"))
+    return jit(nopython=True)(lambdify(["z", "C"], parse(expr), "numpy"))
 
 
 @jit(nopython=True)
