@@ -141,14 +141,16 @@ def shortcut_handler(event):
     if key in shortcuts and event.inaxes != None:
         canvas.get_tk_widget().config(cursor="watch")
         view = julia if julia.ax == event.inaxes else mandel
-        view.center = view.sw + (
-            event.xdata * view.delta + event.ydata * view.delta * 1.0j
-        )
 
-        # 's' is not listed because it doesn't change center or diam
         if key == "z":  # zooms in
+            view.center = (
+                view.sw + view.delta * complex(event.xdata, event.ydata) + view.center
+            ) / 2
             view.diam /= 2
         elif key == "x":  # zooms out
+            view.center = 2 * view.center - (
+                view.sw + view.delta * complex(event.xdata, event.ydata)
+            )
             view.diam *= 2
         elif key == "r" and view == julia:  # resets center and diam
             view.center = 0.0j
@@ -156,6 +158,8 @@ def shortcut_handler(event):
         elif key == "r" and view == mandel:  # resets center and diam
             view.center = -0.5 + 0.0j
             view.diam = 4.0
+        elif key == "s":
+            view.center = view.sw + (view.delta * complex(event.xdata, event.ydata))
 
         view.update_plot()
         if view == julia and hasattr(julia, "zs"):
