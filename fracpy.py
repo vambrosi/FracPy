@@ -22,7 +22,7 @@ class FigureWrapper:
         self.diam_pxs = 1000
         self.color_shift = 0.0
         self.color_speed = 1 / 128
-        self.fig = Figure(dpi=100, layout="compressed")
+        self.fig = Figure(figsize=(20,10), layout="compressed")
         self.cmap = mpl.colormaps.get_cmap("twilight")
         self.cmap.set_bad(color=self.cmap(0.5))
 
@@ -125,9 +125,14 @@ julia.update_plot()
 
 root = Tk()
 root.wm_title("FracPy Mandelbrot")
-root.geometry("1500x750")
+root.rowconfigure(0, weight=1)
+root.columnconfigure(0, weight=1)
+root.geometry("1500x810")
 
 canvas = FigureCanvasTkAgg(fig_wrap.fig, master=root)
+canvas.get_tk_widget().rowconfigure(0, weight=1)
+canvas.get_tk_widget().columnconfigure(0, weight=1)
+canvas.get_tk_widget().grid(row=0, column=0, columnspan=8)
 canvas.draw()
 
 # FUNCTIONS THAT UPDATE VIEW
@@ -294,8 +299,6 @@ def save_fig_julia():
 
 # GUI OBJECTS AND EVENT HANDLERS
 
-canvas.get_tk_widget().pack(anchor=CENTER, fill=BOTH, expand=True)
-
 root.option_add("*tearOff", FALSE)
 menu = Menu(root)
 root.config(menu=menu)
@@ -305,57 +308,60 @@ menu.add_cascade(menu=m_file, label="File")
 m_file.add_command(label="Save Mandelbrot plot", command=save_fig_mandel)
 m_file.add_command(label="Save Julia plot", command=save_fig_julia)
 
-label_pointer_x = Label(root, text="Pointer x-coordinate:")
-label_pointer_x.pack(side=LEFT, padx=5)
-entry_pointer_x = Entry(root, width=25)
-entry_pointer_x.pack(side=LEFT, padx=5)
+options = Frame(root)
+options.grid(row=1, column=0)
 
-label_pointer_y = Label(root, text="Pointer y-coordinate:")
-label_pointer_y.pack(side=LEFT, padx=5)
-entry_pointer_y = Entry(root, width=25)
-entry_pointer_y.pack(side=LEFT, padx=5)
+label_pointer_x = Label(options, text="Pointer x-coordinate:")
+label_pointer_x.grid(row=0, column=0, padx=5, pady=5)
+entry_pointer_x = Entry(options, width=25)
+entry_pointer_x.grid(row=0, column=1, padx=5, pady=5)
 
-label_esc_radius = Label(root, text="Escape Radius:")
-label_esc_radius.pack(side=LEFT, padx=5)
-entry_esc_radius = Entry(root, width=15)
+label_pointer_y = Label(options, text="Pointer y-coordinate:")
+label_pointer_y.grid(row=1, column=0, padx=5, pady=5)
+entry_pointer_y = Entry(options, width=25)
+entry_pointer_y.grid(row=1, column=1, padx=5, pady=5)
+
+label_esc_radius = Label(options, text="Escape Radius:")
+label_esc_radius.grid(row=0, column=2, padx=5, pady=5)
+entry_esc_radius = Entry(options, width=10)
 entry_esc_radius.insert(0, fig_wrap.esc_radius)
 entry_esc_radius.bind("<Return>", update_esc_radius)
-entry_esc_radius.pack(side=LEFT, padx=5)
+entry_esc_radius.grid(row=0, column=3, padx=5, pady=5)
 
-label_max_iter = Label(root, text="Max Iterations:")
-label_max_iter.pack(side=LEFT, padx=5)
-entry_max_iter = Entry(root, width=10)
+label_max_iter = Label(options, text="Max Iterations:")
+label_max_iter.grid(row=1, column=2, padx=5, pady=5)
+entry_max_iter = Entry(options, width=10)
 entry_max_iter.insert(0, fig_wrap.max_iter)
 entry_max_iter.bind("<Return>", update_max_iter)
-entry_max_iter.pack(side=LEFT, padx=5)
+entry_max_iter.grid(row=1, column=3, padx=5, pady=5)
 
-label_color_shift = Label(root, text="Color Gradient Shift:")
-label_color_shift.pack(side=LEFT, padx=5)
+label_color_shift = Label(options, text="Color Gradient Shift:")
+label_color_shift.grid(row=0, column=4, padx=5, pady=5)
 color_shift_slider = Scale(
-    root, from_=0.0, to=1.0, length=50, command=update_color_shift
+    options, from_=0.0, to=1.0, length=50, command=update_color_shift
 )
-color_shift_slider.pack(side=LEFT, padx=5)
+color_shift_slider.grid(row=0, column=5, padx=5, pady=5)
 
-label_gradient_speed = Label(root, text="Color Gradient Speed:")
-label_gradient_speed.pack(side=LEFT, padx=5)
+label_gradient_speed = Label(options, text="Color Gradient Speed:")
+label_gradient_speed.grid(row=1, column=4, padx=5, pady=5)
 entry_gradient_speed = Spinbox(
-    root,
+    options,
     values=[-2, -1, 0, 1, 2],
     width=5,
     command=update_color_speed,
 )
 entry_gradient_speed.insert(0, 0)
-entry_gradient_speed.pack(side=LEFT, padx=5)
+entry_gradient_speed.grid(row=1, column=5, padx=5, pady=5)
 
-Label(root, text="Point Iterations:").pack(side=LEFT, padx=5)
+Label(options, text="Point Iterations:").grid(row=0, column=6, padx=5, pady=5)
 entry_z_iter = Spinbox(
-    root,
+    options,
     values=list(range(fig_wrap.max_iter)),
     width=5,
     command=update_z_iter,
 )
 entry_z_iter.insert(0, 20)
-entry_z_iter.pack(side=LEFT, padx=5)
+entry_z_iter.grid(row=0, column=7, padx=5, pady=5)
 entry_z_iter.bind("<Return>", update_z_iter)
 
 canvas.mpl_connect("key_press_event", shortcut_handler)

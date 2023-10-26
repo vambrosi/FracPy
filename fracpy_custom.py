@@ -118,7 +118,7 @@ class FigureWrapper:
         self.diam_pxs = 1000
         self.color_shift = 0.0
         self.color_speed = 1 / 128
-        self.fig = Figure(dpi=175, layout="compressed")
+        self.fig = Figure(figsize=(8,8), layout="compressed")
         self.cmap = mpl.colormaps.get_cmap("twilight")
         self.cmap.set_bad(color=self.cmap(0.5))
 
