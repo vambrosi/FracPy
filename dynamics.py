@@ -2,9 +2,7 @@ import re
 
 import numpy as np
 from sympy import lambdify
-from numba import jit, prange, complex128
-
-from sympy.utilities.lambdify import NUMPY_TRANSLATIONS
+from numba import jit, prange
 
 
 def parse(expr):
@@ -36,10 +34,6 @@ def to_function(expr: str):
     Outputs a numba function given by the input expression. The expression must
     be in the variable z, and can contain a parameter C.
     """
-
-    # This definition and imports will be used only in the lambdify below
-    from numpy import sin, cos, tan, exp, log, log10, log2, sinh, cosh, tanh
-
     return jit(nopython=True)(lambdify(["z", "C"], parse(expr), "numpy"))
 
 
