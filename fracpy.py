@@ -22,9 +22,10 @@ class FigureWrapper:
         self.diam_pxs = 1000
         self.color_shift = 0.0
         self.color_speed = 1 / 128
-        self.fig = Figure(figsize=(20,10), layout="compressed")
+        self.fig = Figure(figsize=(20, 10), layout="compressed")
         self.cmap = mpl.colormaps.get_cmap("twilight")
         self.cmap.set_bad(color=self.cmap(0.5))
+        self.stop_pointer = False
 
         # Dynamical parameters
         self.max_iter = 256
@@ -204,6 +205,17 @@ def shortcut_handler(event):
 
         canvas.draw()
 
+    elif key == "e":
+        if fig_wrap.stop_pointer:
+            fig_wrap.stop_pointer = False
+            global pointer_event
+            pointer_event = canvas.mpl_connect(
+                "motion_notify_event", update_julia_center
+            )
+        else:
+            fig_wrap.stop_pointer = True
+            canvas.mpl_disconnect(pointer_event)
+
 
 def update_julia_center(event):
     if event.inaxes != None:
@@ -365,5 +377,5 @@ entry_z_iter.grid(row=0, column=7, padx=5, pady=5)
 entry_z_iter.bind("<Return>", update_z_iter)
 
 canvas.mpl_connect("key_press_event", shortcut_handler)
-canvas.mpl_connect("motion_notify_event", update_julia_center)
+pointer_event = canvas.mpl_connect("motion_notify_event", update_julia_center)
 mainloop()
