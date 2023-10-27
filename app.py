@@ -96,6 +96,19 @@ class App(Tk):
         self.gradient_speed.insert(0, 0)
         self.gradient_speed.grid(row=1, column=5, padx=5, pady=5)
 
+        Label(self.options, text="Point Iterations:").grid(
+            row=0, column=6, padx=5, pady=5
+        )
+        self.z_iter = Spinbox(
+            self.options,
+            values=list(range(self.fig_wrap.max_iter)),
+            width=5,
+            command=self.update_z_iter,
+        )
+        self.z_iter.insert(0, 20)
+        self.z_iter.grid(row=0, column=7, padx=5, pady=5)
+        self.z_iter.bind("<Return>", self.update_z_iter)
+
     def put_menu(self):
         self.option_add("*tearOff", FALSE)
         self.menu = Menu(self)
@@ -146,6 +159,11 @@ class App(Tk):
             self.config(cursor="watch")
             self.julia.update_plot()
             self.mandel.update_plot()
+
+            if hasattr(self.julia, "pts"):
+                delattr(self.julia, "pts")
+                self.julia.orbit_plt.set_data([], [])
+
             self.canvas.draw()
             self.config(cursor="")
             f_window.destroy()
@@ -162,7 +180,7 @@ class App(Tk):
         if key in self.m_shortcuts and event.inaxes != None:
             self.canvas.get_tk_widget().config(cursor="watch")
             view = self.julia if self.julia.ax == event.inaxes else self.mandel
-            pointer = view.pointer_z(event.xdata, event.ydata)
+            pointer = view.img_to_z_coords(event.xdata, event.ydata)
 
             # 's' is not listed because it doesn't change center or diam
             if key == "z":  # zooms in
@@ -186,17 +204,44 @@ class App(Tk):
 
         elif key == "c" and event.inaxes == self.mandel.ax:
             self.canvas.get_tk_widget().config(cursor="watch")
-            self.julia.c = self.mandel.pointer_z(event.xdata, event.ydata)
-
+            self.julia.c = self.mandel.img_to_z_coords(event.xdata, event.ydata)
             self.julia.update_plot()
+
+            if hasattr(self.julia, "pts"):
+                x, y = self.julia.pts[0][0], self.julia.pts[1][0]
+                z = self.julia.img_to_z_coords(x, y)
+
+                self.julia.pts = self.julia.z_to_img_coords(self.julia.orbit(z))
+                xs = self.julia.pts[0][:self.julia.z_iter]
+                ys = self.julia.pts[1][:self.julia.z_iter]
+
+                self.julia.orbit_plt.set_data(xs, ys)
+
             self.canvas.draw()
             self.canvas.get_tk_widget().config(cursor="")
+
+        elif key == "t" and event.inaxes == self.julia.ax:
+            z = self.julia.img_to_z_coords(event.xdata, event.ydata)
+
+            self.julia.pts = self.julia.z_to_img_coords(self.julia.orbit(z))
+            xs = self.julia.pts[0][:self.julia.z_iter]
+            ys = self.julia.pts[1][:self.julia.z_iter]
+
+            self.julia.orbit_plt.set_data(xs, ys)
+            self.canvas.draw()
+
+        elif key == "d" and event.inaxes == self.julia.ax:
+            if hasattr(self.julia, "pts"):
+                delattr(self.julia, "pts")
+                self.julia.orbit_plt.set_data([], [])
+
+            self.canvas.draw()
 
     def update_pointer(self, event):
         if event.inaxes != None:
             view = self.julia if self.julia.ax == event.inaxes else self.mandel
 
-            pointer = view.pointer_z(event.xdata, event.ydata)
+            pointer = view.img_to_z_coords(event.xdata, event.ydata)
 
             self.pointer_x.delete(0, END)
             self.pointer_x.insert(0, pointer.real)
@@ -233,6 +278,20 @@ class App(Tk):
         self.fig_wrap.max_iter = np.int64(event.widget.get())
         self.mandel.update_plot()
         self.julia.update_plot()
+        self.canvas.draw()
+        self.canvas.get_tk_widget().config(cursor="")
+        self.canvas.get_tk_widget().focus_set()
+
+    def update_z_iter(self, *args):
+        self.canvas.get_tk_widget().config(cursor="watch")
+        self.julia.z_iter = np.int64(self.z_iter.get())
+
+        if hasattr(self.julia, "pts"):
+            xs = self.julia.pts[0][:self.julia.z_iter]
+            ys = self.julia.pts[1][:self.julia.z_iter]
+
+            self.julia.orbit_plt.set_data(xs, ys)
+
         self.canvas.draw()
         self.canvas.get_tk_widget().config(cursor="")
         self.canvas.get_tk_widget().focus_set()

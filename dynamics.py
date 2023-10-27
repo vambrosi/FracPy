@@ -44,6 +44,19 @@ def to_function(expr: str):
 
 
 @jit(nopython=True)
+def orbit(f, z, c, max_iter, radius):
+    iterates = np.zeros(max_iter, dtype=np.complex128)
+    for i in range(max_iter):
+        iterates[i] = z
+        z = f(z, c)
+        if np.abs(z) >= radius:
+            iterates = iterates[:i]
+            break
+
+    return iterates
+
+
+@jit(nopython=True)
 def escape_time(f, z, c, max_iters, radius_sqr):
     i = 0
     for i in range(max_iters):
