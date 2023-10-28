@@ -1,9 +1,15 @@
 import numpy as np
+from numba import jit
 
 import matplotlib as mpl
 from matplotlib.figure import Figure
 
 from dynamics import to_function, escape_grid, orbit
+
+
+@jit(nopython=True)
+def color_shift_scale(img, shift, scale):
+    return (scale * img + shift) % 1
 
 
 class FigureWrapper:
@@ -103,7 +109,9 @@ class SetView:
         )
 
         self.plt.set_data(
-            (self.fig_wrap.color_speed * self.img + self.fig_wrap.color_shift) % 1
+            color_shift_scale(
+                self.img, self.fig_wrap.color_shift, self.fig_wrap.color_speed
+            )
         )
 
     def img_to_z_coords(self, xdata, ydata):

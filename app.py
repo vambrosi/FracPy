@@ -44,60 +44,75 @@ class App(Tk):
         self.canvas.get_tk_widget().grid(row=0, column=0, columnspan=6)
         self.canvas.mpl_connect("key_press_event", self.shortcut_handler)
         self.canvas.mpl_connect("motion_notify_event", self.update_pointer)
-        self.canvas.draw()
+        self.canvas.draw_idle()
 
     def put_options(self):
         self.options = Frame(self)
         self.options.grid(row=1, column=0)
 
-        Label(self.options, text="Pointer x-coordinate:").grid(
+        # Pointer coordinates
+        Label(self.options, text="Pointer x:").grid(
             row=0, column=0, padx=5, pady=5
         )
         self.pointer_x = Entry(self.options, width=25)
         self.pointer_x.grid(row=0, column=1, padx=5, pady=5)
 
-        Label(self.options, text="Pointer y-coordinate:").grid(
+        Label(self.options, text="Pointer y:").grid(
             row=1, column=0, padx=5, pady=5
         )
         self.pointer_y = Entry(self.options, width=25)
         self.pointer_y.grid(row=1, column=1, padx=5, pady=5)
 
-        Label(self.options, text="Escape Radius:").grid(row=0, column=2, padx=5, pady=5)
+        # Parameter coordinates
+        Label(self.options, text="Parameter x:").grid(
+            row=0, column=2, padx=5, pady=5
+        )
+        self.c_x = Entry(self.options, width=25)
+        self.c_x.insert(0, self.julia.c.real)
+        self.c_x.bind("<Return>", self.update_c)
+        self.c_x.grid(row=0, column=3, padx=5, pady=5)
+
+        Label(self.options, text="Parameter y:").grid(
+            row=1, column=2, padx=5, pady=5
+        )
+        self.c_y = Entry(self.options, width=25)
+        self.c_y.insert(0, self.julia.c.imag)
+        self.c_y.bind("<Return>", self.update_c)
+        self.c_y.grid(row=1, column=3, padx=5, pady=5)
+
+        # Orbit z0 coordinates
+        Label(self.options, text="Orbit initial x:").grid(
+            row=0, column=4, padx=5, pady=5
+        )
+        self.z0_x = Entry(self.options, width=25)
+        self.z0_x.bind("<Return>", self.update_z0)
+        self.z0_x.grid(row=0, column=5, padx=5, pady=5)
+
+        Label(self.options, text="Orbit initial y:").grid(
+            row=1, column=4, padx=5, pady=5
+        )
+        self.z0_y = Entry(self.options, width=25)
+        self.z0_y.bind("<Return>", self.update_z0)
+        self.z0_y.grid(row=1, column=5, padx=5, pady=5)
+
+        # Dynamical parameters
+        Label(self.options, text="Escape Radius:").grid(row=0, column=6, padx=5, pady=5)
         self.esc_radius = Entry(self.options, width=10)
         self.esc_radius.insert(0, self.fig_wrap.esc_radius)
         self.esc_radius.bind("<Return>", self.update_esc_radius)
-        self.esc_radius.grid(row=0, column=3, padx=5, pady=5)
+        self.esc_radius.grid(row=0, column=7, padx=5, pady=5)
 
         Label(self.options, text="Max Iterations:").grid(
-            row=1, column=2, padx=5, pady=5
+            row=1, column=6, padx=5, pady=5
         )
         self.max_iter = Entry(self.options, width=10)
         self.max_iter.insert(0, self.fig_wrap.max_iter)
         self.max_iter.bind("<Return>", self.update_max_iter)
-        self.max_iter.grid(row=1, column=3, padx=5, pady=5)
+        self.max_iter.grid(row=1, column=7, padx=5, pady=5)
 
-        Label(self.options, text="Color Gradient Shift:").grid(
-            row=0, column=4, padx=5, pady=5
-        )
-        self.color_shift_slider = Scale(
-            self.options, from_=0.0, to=1.0, length=50, command=self.update_color_shift
-        )
-        self.color_shift_slider.grid(row=0, column=5, padx=5, pady=5)
-
-        Label(self.options, text="Color Gradient Speed:").grid(
-            row=1, column=4, padx=5, pady=5
-        )
-        self.gradient_speed = Spinbox(
-            self.options,
-            values=[-2, -1, 0, 1, 2],
-            width=5,
-            command=self.update_color_speed,
-        )
-        self.gradient_speed.insert(0, 0)
-        self.gradient_speed.grid(row=1, column=5, padx=5, pady=5)
-
+        # Point parameters
         Label(self.options, text="Point Iterations:").grid(
-            row=0, column=6, padx=5, pady=5
+            row=0, column=8, padx=5, pady=5
         )
         self.z_iter = Spinbox(
             self.options,
@@ -106,8 +121,21 @@ class App(Tk):
             command=self.update_z_iter,
         )
         self.z_iter.insert(0, 20)
-        self.z_iter.grid(row=0, column=7, padx=5, pady=5)
+        self.z_iter.grid(row=0, column=9, padx=5, pady=5)
         self.z_iter.bind("<Return>", self.update_z_iter)
+
+        # Color parameters
+        Label(self.options, text="Color Gradient Speed:").grid(
+            row=1, column=8, padx=5, pady=5
+        )
+        self.gradient_speed = Spinbox(
+            self.options,
+            values=[-2, -1, 0, 1, 2],
+            width=5,
+            command=self.update_color_speed,
+        )
+        self.gradient_speed.insert(0, 0)
+        self.gradient_speed.grid(row=1, column=9, padx=5, pady=5)
 
     def put_menu(self):
         self.option_add("*tearOff", FALSE)
@@ -164,7 +192,7 @@ class App(Tk):
                 delattr(self.julia, "pts")
                 self.julia.orbit_plt.set_data([], [])
 
-            self.canvas.draw()
+            self.canvas.draw_idle()
             self.config(cursor="")
             f_window.destroy()
 
@@ -191,15 +219,12 @@ class App(Tk):
                 view.center = 2 * view.center - pointer
             elif key == "s":  # zooms out
                 view.center = pointer
-            elif key == "r" and view == self.julia:  # resets center and diam
-                view.center = view.init_center
-                view.diam = 4.0
-            elif key == "r" and view == self.mandel:  # resets center and diam
+            elif key == "r":  # resets center and diam
                 view.center = view.init_center
                 view.diam = 4.0
 
             view.update_plot()
-            self.canvas.draw()
+            self.canvas.draw_idle()
             self.canvas.get_tk_widget().config(cursor="")
 
         elif key == "c" and event.inaxes == self.mandel.ax:
@@ -207,35 +232,53 @@ class App(Tk):
             self.julia.c = self.mandel.img_to_z_coords(event.xdata, event.ydata)
             self.julia.update_plot()
 
+            self.c_x.delete(0, END)
+            self.c_x.insert(0, self.julia.c.real)
+
+            self.c_y.delete(0, END)
+            self.c_y.insert(0, self.julia.c.imag)
+
             if hasattr(self.julia, "pts"):
                 x, y = self.julia.pts[0][0], self.julia.pts[1][0]
                 z = self.julia.img_to_z_coords(x, y)
 
                 self.julia.pts = self.julia.z_to_img_coords(self.julia.orbit(z))
-                xs = self.julia.pts[0][:self.julia.z_iter]
-                ys = self.julia.pts[1][:self.julia.z_iter]
+                xs = self.julia.pts[0][: self.julia.z_iter]
+                ys = self.julia.pts[1][: self.julia.z_iter]
 
                 self.julia.orbit_plt.set_data(xs, ys)
 
-            self.canvas.draw()
+            self.canvas.draw_idle()
             self.canvas.get_tk_widget().config(cursor="")
 
         elif key == "t" and event.inaxes == self.julia.ax:
             z = self.julia.img_to_z_coords(event.xdata, event.ydata)
 
             self.julia.pts = self.julia.z_to_img_coords(self.julia.orbit(z))
-            xs = self.julia.pts[0][:self.julia.z_iter]
-            ys = self.julia.pts[1][:self.julia.z_iter]
+            xs = self.julia.pts[0][: self.julia.z_iter]
+            ys = self.julia.pts[1][: self.julia.z_iter]
 
             self.julia.orbit_plt.set_data(xs, ys)
-            self.canvas.draw()
+            self.canvas.draw_idle()
 
-        elif key == "d" and event.inaxes == self.julia.ax:
+            self.z0_x.delete(0, END)
+            self.z0_x.insert(0, z.real)
+
+            self.z0_y.delete(0, END)
+            self.z0_y.insert(0, z.imag)
+
+        elif key == "d":
             if hasattr(self.julia, "pts"):
                 delattr(self.julia, "pts")
                 self.julia.orbit_plt.set_data([], [])
 
-            self.canvas.draw()
+            self.canvas.draw_idle()
+
+        elif key == "left":
+            self.update_color_shift(pressed_left=True)
+
+        elif key == "right":
+            self.update_color_shift(pressed_left=False)
 
     def update_pointer(self, event):
         if event.inaxes != None:
@@ -248,11 +291,30 @@ class App(Tk):
             self.pointer_y.delete(0, END)
             self.pointer_y.insert(0, pointer.imag)
 
-    def update_color_shift(self, shift_text):
-        self.fig_wrap.color_shift = np.float64(shift_text)
+    def update_c(self, event):
+        self.julia.c = complex(float(self.c_x.get()), float(self.c_y.get()))
+        self.julia.update_plot()
+        self.canvas.draw_idle()
+        self.canvas.get_tk_widget().focus_set()
+
+    def update_z0(self, event):
+        z = complex(float(self.z0_x.get()), float(self.z0_y.get()))
+
+        self.julia.pts = self.julia.z_to_img_coords(self.julia.orbit(z))
+        xs = self.julia.pts[0][: self.julia.z_iter]
+        ys = self.julia.pts[1][: self.julia.z_iter]
+
+        self.julia.orbit_plt.set_data(xs, ys)
+        self.canvas.draw_idle()
+
+    def update_color_shift(self, pressed_left):
+        if pressed_left:
+            self.fig_wrap.color_shift -= 1/32
+        else:
+            self.fig_wrap.color_shift += 1/32
         self.mandel.update_plot(all=False)
         self.julia.update_plot(all=False)
-        self.canvas.draw()
+        self.canvas.draw_idle()
         self.canvas.get_tk_widget().focus_set()
 
     def update_color_speed(self):
@@ -260,7 +322,7 @@ class App(Tk):
         self.fig_wrap.color_speed = 1 << (2 + int(self.gradient_speed.get()))
         self.mandel.update_plot(all=False)
         self.julia.update_plot(all=False)
-        self.canvas.draw()
+        self.canvas.draw_idle()
         self.canvas.get_tk_widget().config(cursor="")
         self.canvas.get_tk_widget().focus_set()
 
@@ -269,7 +331,7 @@ class App(Tk):
         self.fig_wrap.esc_radius = np.float64(event.widget.get())
         self.mandel.update_plot()
         self.julia.update_plot()
-        self.canvas.draw()
+        self.canvas.draw_idle()
         self.canvas.get_tk_widget().config(cursor="")
         self.canvas.get_tk_widget().focus_set()
 
@@ -278,7 +340,7 @@ class App(Tk):
         self.fig_wrap.max_iter = np.int64(event.widget.get())
         self.mandel.update_plot()
         self.julia.update_plot()
-        self.canvas.draw()
+        self.canvas.draw_idle()
         self.canvas.get_tk_widget().config(cursor="")
         self.canvas.get_tk_widget().focus_set()
 
@@ -287,12 +349,12 @@ class App(Tk):
         self.julia.z_iter = np.int64(self.z_iter.get())
 
         if hasattr(self.julia, "pts"):
-            xs = self.julia.pts[0][:self.julia.z_iter]
-            ys = self.julia.pts[1][:self.julia.z_iter]
+            xs = self.julia.pts[0][: self.julia.z_iter]
+            ys = self.julia.pts[1][: self.julia.z_iter]
 
             self.julia.orbit_plt.set_data(xs, ys)
 
-        self.canvas.draw()
+        self.canvas.draw_idle()
         self.canvas.get_tk_widget().config(cursor="")
         self.canvas.get_tk_widget().focus_set()
 
