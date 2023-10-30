@@ -1,6 +1,7 @@
 import os
 from tkinter import *
 from tkinter.ttk import *
+from tkinter import filedialog
 
 import numpy as np
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
@@ -51,30 +52,22 @@ class App(Tk):
         self.options.grid(row=1, column=0)
 
         # Pointer coordinates
-        Label(self.options, text="Pointer x:").grid(
-            row=0, column=0, padx=5, pady=5
-        )
+        Label(self.options, text="Pointer x:").grid(row=0, column=0, padx=5, pady=5)
         self.pointer_x = Entry(self.options, width=25)
         self.pointer_x.grid(row=0, column=1, padx=5, pady=5)
 
-        Label(self.options, text="Pointer y:").grid(
-            row=1, column=0, padx=5, pady=5
-        )
+        Label(self.options, text="Pointer y:").grid(row=1, column=0, padx=5, pady=5)
         self.pointer_y = Entry(self.options, width=25)
         self.pointer_y.grid(row=1, column=1, padx=5, pady=5)
 
         # Parameter coordinates
-        Label(self.options, text="Parameter x:").grid(
-            row=0, column=2, padx=5, pady=5
-        )
+        Label(self.options, text="Parameter x:").grid(row=0, column=2, padx=5, pady=5)
         self.c_x = Entry(self.options, width=25)
         self.c_x.insert(0, self.julia.c.real)
         self.c_x.bind("<Return>", self.update_c)
         self.c_x.grid(row=0, column=3, padx=5, pady=5)
 
-        Label(self.options, text="Parameter y:").grid(
-            row=1, column=2, padx=5, pady=5
-        )
+        Label(self.options, text="Parameter y:").grid(row=1, column=2, padx=5, pady=5)
         self.c_y = Entry(self.options, width=25)
         self.c_y.insert(0, self.julia.c.imag)
         self.c_y.bind("<Return>", self.update_c)
@@ -130,11 +123,12 @@ class App(Tk):
         )
         self.gradient_speed = Spinbox(
             self.options,
-            values=[-2, -1, 0, 1, 2],
+            values=list(range(-2, 6)),
             width=5,
             command=self.update_color_speed,
         )
         self.gradient_speed.insert(0, 0)
+        self.gradient_speed.bind("<Return>", self.update_color_speed)
         self.gradient_speed.grid(row=1, column=9, padx=5, pady=5)
 
     def put_menu(self):
@@ -142,8 +136,15 @@ class App(Tk):
         self.menu = Menu(self)
         self.config(menu=self.menu)
 
+        self.m_file = Menu(self.menu)
+        self.menu.add_cascade(menu=self.m_file, label="File")
+        self.m_file.add_command(
+            label="Save Mandelbrot plot", command=self.save_fig_mandel
+        )
+        self.m_file.add_command(label="Save Julia plot", command=self.save_fig_julia)
+
         self.m_input = Menu(self.menu)
-        self.menu.add_cascade(menu=self.m_input, label="Input")
+        self.menu.add_cascade(menu=self.m_input, label="Edit")
         self.m_input.add_command(label="Family of functions", command=self.get_formula)
 
     def get_formula(self):
@@ -210,6 +211,10 @@ class App(Tk):
             view = self.julia if self.julia.ax == event.inaxes else self.mandel
             pointer = view.img_to_z_coords(event.xdata, event.ydata)
 
+            if hasattr(self.julia, "pts"):
+                x, y = self.julia.pts[0][0], self.julia.pts[1][0]
+                z = self.julia.img_to_z_coords(x, y)
+
             # 's' is not listed because it doesn't change center or diam
             if key == "z":  # zooms in
                 view.diam /= 2
@@ -222,6 +227,13 @@ class App(Tk):
             elif key == "r":  # resets center and diam
                 view.center = view.init_center
                 view.diam = 4.0
+
+            if hasattr(self.julia, "pts"):
+                self.julia.pts = self.julia.z_to_img_coords(self.julia.orbit(z))
+                xs = self.julia.pts[0][: self.julia.z_iter]
+                ys = self.julia.pts[1][: self.julia.z_iter]
+
+                self.julia.orbit_plt.set_data(xs, ys)
 
             view.update_plot()
             self.canvas.draw_idle()
@@ -309,15 +321,15 @@ class App(Tk):
 
     def update_color_shift(self, pressed_left):
         if pressed_left:
-            self.fig_wrap.color_shift -= 1/32
+            self.fig_wrap.color_shift -= 1 / 32
         else:
-            self.fig_wrap.color_shift += 1/32
+            self.fig_wrap.color_shift += 1 / 32
         self.mandel.update_plot(all=False)
         self.julia.update_plot(all=False)
         self.canvas.draw_idle()
         self.canvas.get_tk_widget().focus_set()
 
-    def update_color_speed(self):
+    def update_color_speed(self, *args):
         self.canvas.get_tk_widget().config(cursor="watch")
         self.fig_wrap.color_speed = 1 << (2 + int(self.gradient_speed.get()))
         self.mandel.update_plot(all=False)
@@ -357,6 +369,32 @@ class App(Tk):
         self.canvas.draw_idle()
         self.canvas.get_tk_widget().config(cursor="")
         self.canvas.get_tk_widget().focus_set()
+
+    def save_fig_mandel(self):
+        filetypes = [("PNG", "*.png"), ("JPEG Image", "*.jpg"), ("All Files", "*.*")]
+
+        filename = filedialog.asksaveasfilename(
+            initialfile="mandel.png",
+            defaultextension=".png",
+            filetypes=filetypes,
+        )
+        extent = self.mandel.ax.get_window_extent().transformed(
+            self.fig_wrap.fig.dpi_scale_trans.inverted()
+        )
+        self.fig_wrap.fig.savefig(filename, dpi=327, bbox_inches=extent)
+
+    def save_fig_julia(self):
+        filetypes = [("PNG", "*.png"), ("JPEG Image", "*.jpg"), ("All Files", "*.*")]
+
+        filename = filedialog.asksaveasfilename(
+            initialfile="julia.png",
+            defaultextension=".png",
+            filetypes=filetypes,
+        )
+        extent = self.julia.ax.get_window_extent().transformed(
+            self.fig_wrap.fig.dpi_scale_trans.inverted()
+        )
+        self.fig_wrap.fig.savefig(filename, dpi=327, bbox_inches=extent)
 
 
 if __name__ == "__main__":

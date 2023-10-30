@@ -73,7 +73,9 @@ class SetView:
         )
 
         self.plt = self.ax.imshow(
-            (self.fig_wrap.color_speed * self.img) % 1,
+            color_shift_scale(
+                self.img, self.fig_wrap.color_shift, self.fig_wrap.color_speed
+            ),
             cmap=self.fig_wrap.cmap,
             origin="lower",
             interpolation_stage="rgba",
