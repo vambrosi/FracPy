@@ -51,13 +51,19 @@ def orbit(f, z, c, max_iter, radius):
 
 
 @jit(nopython=True)
-def escape_time(f, z, c, max_iters, radius_sqr):
-    i = 0
+def escape_time(f, z, c, max_iters, radius):
+    z2 = f(z, c)
+    inv_radius = 1 / (1000 * radius)
+
     for i in range(max_iters):
+        if abs(z) >= radius:
+            return ((1 / 256) * (i + 1 - np.log2(np.log2(abs(z))))) % 1
+
+        if abs(z2 - z) <= inv_radius:
+            return ((1 / 256) * (i + 1 - np.log2(-np.log2(abs(z2 - z))))) % 1
+
         z = f(z, c)
-        abs2 = z.real * z.real + z.imag * z.imag
-        if abs2 >= radius_sqr:
-            return ((1 / 256) * (i + 1 - np.log2(np.log2(abs2) / 2))) % 1
+        z2 = f(f(z2, c), c)
 
     return np.nan
 
@@ -66,7 +72,6 @@ def escape_time(f, z, c, max_iters, radius_sqr):
 def escape_grid(f, center, c, diam, grid, iters, esc_radius, c_space=False):
     h = grid.shape[0]
     w = grid.shape[1]
-    esc_radius_sqr = esc_radius**2
 
     # Assumes that diam is the length of the grid in the x direction
     delta = diam / w
@@ -84,12 +89,12 @@ def escape_grid(f, center, c, diam, grid, iters, esc_radius, c_space=False):
             dx = n * delta
             for m in prange(h):
                 dy = m * delta
-                color = escape_time(f, c, z0 + complex(dx, dy), iters, esc_radius_sqr)
+                color = escape_time(f, c, z0 + complex(dx, dy), iters, esc_radius)
                 grid[m, n] = color
     else:
         for n in prange(w):
             dx = n * delta
             for m in prange(h):
                 dy = m * delta
-                color = escape_time(f, z0 + complex(dx, dy), c, iters, esc_radius_sqr)
+                color = escape_time(f, z0 + complex(dx, dy), c, iters, esc_radius)
                 grid[m, n] = color
