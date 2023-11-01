@@ -51,6 +51,7 @@ class SetView:
         )
         self.ax = ax
         self.ax.set_axis_off()
+        self.alg = "iter"
 
         if c_space:
             self.init_center = -0.5 + 0.0j
@@ -70,6 +71,7 @@ class SetView:
             fig_wrap.max_iter,
             fig_wrap.esc_radius,
             c_space=self.c_space,
+            alg=self.alg,
         )
 
         self.plt = self.ax.imshow(
@@ -77,6 +79,8 @@ class SetView:
                 self.img, self.fig_wrap.color_shift, self.fig_wrap.color_speed
             ),
             cmap=self.fig_wrap.cmap,
+            vmin=0.0,
+            vmax=1.0,
             origin="lower",
             interpolation_stage="rgba",
         )
@@ -108,6 +112,7 @@ class SetView:
             self.fig_wrap.max_iter,
             self.fig_wrap.esc_radius,
             c_space=self.c_space,
+            alg=self.alg,
         )
 
         self.plt.set_data(

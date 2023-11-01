@@ -230,8 +230,8 @@ class App(Tk):
 
             if hasattr(self.julia, "pts"):
                 self.julia.pts = self.julia.z_to_img_coords(self.julia.orbit(z))
-                xs = self.julia.pts[0][: self.julia.z_iter]
-                ys = self.julia.pts[1][: self.julia.z_iter]
+                xs = self.julia.pts[0][: self.julia.z_iter + 1]
+                ys = self.julia.pts[1][: self.julia.z_iter + 1]
 
                 self.julia.orbit_plt.set_data(xs, ys)
 
@@ -255,8 +255,8 @@ class App(Tk):
                 z = self.julia.img_to_z_coords(x, y)
 
                 self.julia.pts = self.julia.z_to_img_coords(self.julia.orbit(z))
-                xs = self.julia.pts[0][: self.julia.z_iter]
-                ys = self.julia.pts[1][: self.julia.z_iter]
+                xs = self.julia.pts[0][: self.julia.z_iter + 1]
+                ys = self.julia.pts[1][: self.julia.z_iter + 1]
 
                 self.julia.orbit_plt.set_data(xs, ys)
 
@@ -267,8 +267,8 @@ class App(Tk):
             z = self.julia.img_to_z_coords(event.xdata, event.ydata)
 
             self.julia.pts = self.julia.z_to_img_coords(self.julia.orbit(z))
-            xs = self.julia.pts[0][: self.julia.z_iter]
-            ys = self.julia.pts[1][: self.julia.z_iter]
+            xs = self.julia.pts[0][: self.julia.z_iter + 1]
+            ys = self.julia.pts[1][: self.julia.z_iter + 1]
 
             self.julia.orbit_plt.set_data(xs, ys)
             self.canvas.draw_idle()
@@ -292,6 +292,24 @@ class App(Tk):
         elif key == "right":
             self.update_color_shift(pressed_left=False)
 
+        elif key == "1" and event.inaxes != None:
+            view = self.julia if self.julia.ax == event.inaxes else self.mandel
+            view.alg = "iter"
+            view.update_plot()
+            self.canvas.draw_idle()
+
+        elif key == "2" and event.inaxes != None:
+            view = self.julia if self.julia.ax == event.inaxes else self.mandel
+            view.alg = "period"
+            view.update_plot()
+            self.canvas.draw_idle()
+
+        elif key == "3" and event.inaxes != None:
+            view = self.julia if self.julia.ax == event.inaxes else self.mandel
+            view.alg = "derbail"
+            view.update_plot()
+            self.canvas.draw_idle()
+
     def update_pointer(self, event):
         if event.inaxes != None:
             view = self.julia if self.julia.ax == event.inaxes else self.mandel
@@ -313,8 +331,8 @@ class App(Tk):
         z = complex(float(self.z0_x.get()), float(self.z0_y.get()))
 
         self.julia.pts = self.julia.z_to_img_coords(self.julia.orbit(z))
-        xs = self.julia.pts[0][: self.julia.z_iter]
-        ys = self.julia.pts[1][: self.julia.z_iter]
+        xs = self.julia.pts[0][: self.julia.z_iter + 1]
+        ys = self.julia.pts[1][: self.julia.z_iter + 1]
 
         self.julia.orbit_plt.set_data(xs, ys)
         self.canvas.draw_idle()
@@ -361,8 +379,8 @@ class App(Tk):
         self.julia.z_iter = np.int64(self.z_iter.get())
 
         if hasattr(self.julia, "pts"):
-            xs = self.julia.pts[0][: self.julia.z_iter]
-            ys = self.julia.pts[1][: self.julia.z_iter]
+            xs = self.julia.pts[0][: self.julia.z_iter + 1]
+            ys = self.julia.pts[1][: self.julia.z_iter + 1]
 
             self.julia.orbit_plt.set_data(xs, ys)
 

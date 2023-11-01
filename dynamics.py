@@ -52,15 +52,26 @@ def orbit(f, z, c, max_iter, radius):
 
 @jit(nopython=True)
 def escape_time(f, z, c, max_iters, radius):
-    z2 = f(z, c)
-    inv_radius = 1 / (1000 * radius)
-
     for i in range(max_iters):
         if abs(z) >= radius:
             return ((1 / 256) * (i + 1 - np.log2(np.log2(abs(z))))) % 1
 
+        z = f(z, c)
+
+    return np.nan
+
+
+@jit(nopython=True)
+def escape_period(f, z, c, max_iters, radius):
+    z2 = f(z, c)
+    inv_radius = 1 / radius
+
+    for i in range(max_iters):
+        if abs(z2 - z) >= radius:
+            return (i + 1 - np.log2(np.log2(abs(z2 - z)))) / 256
+
         if abs(z2 - z) <= inv_radius:
-            return ((1 / 256) * (i + 1 - np.log2(-np.log2(abs(z2 - z))))) % 1
+            return (i + 1 - np.log2(-np.log2(abs(z2 - z)))) / 256
 
         z = f(z, c)
         z2 = f(f(z2, c), c)
@@ -68,8 +79,25 @@ def escape_time(f, z, c, max_iters, radius):
     return np.nan
 
 
+@jit(nopython=True)
+def escape_derbail(f, z, c, max_iters, radius):
+    dz = 1
+    dz_sum = 0
+    derbail = radius * 1000
+
+    for i in range(max_iters):
+        if abs(z) >= radius or abs(dz_sum) >= derbail:
+            return ((1 / 256) * (i + 1 - np.log2(np.log2(abs(z))))) % 1
+
+        z = z * z + c
+        dz = 2 * z * dz
+        dz_sum += dz
+
+    return np.nan
+
+
 @jit(nopython=True, parallel=True)
-def escape_grid(f, center, c, diam, grid, iters, esc_radius, c_space=False):
+def escape_grid(f, center, c, diam, grid, iters, esc_radius, c_space=False, alg="iter"):
     h = grid.shape[0]
     w = grid.shape[1]
 
@@ -84,17 +112,54 @@ def escape_grid(f, center, c, diam, grid, iters, esc_radius, c_space=False):
     # c_space tells if grid is in parameter space or dynamical space
     # This is true for the mandelbrot set and false for Julia sets.
 
-    if c_space:
-        for n in prange(w):
-            dx = n * delta
-            for m in prange(h):
-                dy = m * delta
-                color = escape_time(f, c, z0 + complex(dx, dy), iters, esc_radius)
-                grid[m, n] = color
-    else:
-        for n in prange(w):
-            dx = n * delta
-            for m in prange(h):
-                dy = m * delta
-                color = escape_time(f, z0 + complex(dx, dy), c, iters, esc_radius)
-                grid[m, n] = color
+    if alg == "iter":
+        if c_space:
+            for n in prange(w):
+                dx = n * delta
+                for m in prange(h):
+                    dy = m * delta
+                    color = escape_time(f, c, z0 + complex(dx, dy), iters, esc_radius)
+                    grid[m, n] = color
+        else:
+            for n in prange(w):
+                dx = n * delta
+                for m in prange(h):
+                    dy = m * delta
+                    color = escape_time(f, z0 + complex(dx, dy), c, iters, esc_radius)
+                    grid[m, n] = color
+
+    elif alg == "period":
+        if c_space:
+            for n in prange(w):
+                dx = n * delta
+                for m in prange(h):
+                    dy = m * delta
+                    color = escape_period(f, c, z0 + complex(dx, dy), iters, esc_radius)
+                    grid[m, n] = color
+        else:
+            for n in prange(w):
+                dx = n * delta
+                for m in prange(h):
+                    dy = m * delta
+                    color = escape_period(f, z0 + complex(dx, dy), c, iters, esc_radius)
+                    grid[m, n] = color
+
+    elif alg == "derbail":
+        if c_space:
+            for n in prange(w):
+                dx = n * delta
+                for m in prange(h):
+                    dy = m * delta
+                    color = escape_derbail(
+                        f, c, z0 + complex(dx, dy), iters, esc_radius
+                    )
+                    grid[m, n] = color
+        else:
+            for n in prange(w):
+                dx = n * delta
+                for m in prange(h):
+                    dy = m * delta
+                    color = escape_derbail(
+                        f, z0 + complex(dx, dy), c, iters, esc_radius
+                    )
+                    grid[m, n] = color
