@@ -34,7 +34,16 @@ def to_function(expr: str):
     Outputs a numba function given by the input expression. The expression must
     be in the variable z, and can contain a parameter C.
     """
-    return jit(nopython=True)(lambdify(["z", "C"], parse(expr), "numpy"))
+    f = jit(nopython=True)(lambdify(["z", "C"], parse(expr), "numpy"))
+
+    # Make sure errors like division by zero are returned as nan (which can be plotted).
+    def g(z, c):
+        try:
+            return f(z, c)
+        except:
+            return np.nan
+
+    return jit(nopython=True)(g)
 
 
 @jit(nopython=True)
@@ -64,34 +73,17 @@ def escape_time(f, z, c, max_iters, radius):
 @jit(nopython=True)
 def escape_period(f, z, c, max_iters, radius):
     z2 = f(z, c)
-    inv_radius = 1 / radius
+    inv_radius = 1 / (1000 * radius)
 
     for i in range(max_iters):
-        if abs(z2 - z) >= radius:
-            return (i + 1 - np.log2(np.log2(abs(z2 - z)))) / 256
+        if abs(z) >= radius:
+            return (i + 1 - np.log2(np.log2(abs(z)))) / 256
 
         if abs(z2 - z) <= inv_radius:
             return (i + 1 - np.log2(-np.log2(abs(z2 - z)))) / 256
 
         z = f(z, c)
         z2 = f(f(z2, c), c)
-
-    return np.nan
-
-
-@jit(nopython=True)
-def escape_derbail(f, z, c, max_iters, radius):
-    dz = 1
-    dz_sum = 0
-    derbail = radius * 1000
-
-    for i in range(max_iters):
-        if abs(z) >= radius or abs(dz_sum) >= derbail:
-            return ((1 / 256) * (i + 1 - np.log2(np.log2(abs(z))))) % 1
-
-        z = z * z + c
-        dz = 2 * z * dz
-        dz_sum += dz
 
     return np.nan
 
@@ -142,24 +134,4 @@ def escape_grid(f, center, c, diam, grid, iters, esc_radius, c_space=False, alg=
                 for m in prange(h):
                     dy = m * delta
                     color = escape_period(f, z0 + complex(dx, dy), c, iters, esc_radius)
-                    grid[m, n] = color
-
-    elif alg == "derbail":
-        if c_space:
-            for n in prange(w):
-                dx = n * delta
-                for m in prange(h):
-                    dy = m * delta
-                    color = escape_derbail(
-                        f, c, z0 + complex(dx, dy), iters, esc_radius
-                    )
-                    grid[m, n] = color
-        else:
-            for n in prange(w):
-                dx = n * delta
-                for m in prange(h):
-                    dy = m * delta
-                    color = escape_derbail(
-                        f, z0 + complex(dx, dy), c, iters, esc_radius
-                    )
                     grid[m, n] = color
