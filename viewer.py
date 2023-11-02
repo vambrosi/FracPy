@@ -15,7 +15,18 @@ if os.name == "nt":
 
 
 class SetViewer(Tk):
-    def __init__(self, expr, param=None):
+    """
+    Creates a window to explore a dynamical system (DSystem).
+    """
+    def __init__(
+        self,
+        d_system,
+        julia_center,
+        julia_diam,
+        mandel_center,
+        mandel_diam,
+        init_param=0.0j,
+    ):
         super().__init__()
 
         self.wm_title("FracPy")
@@ -24,33 +35,23 @@ class SetViewer(Tk):
 
         self.fig_wrap = FigureWrapper()
 
-        if param == None:
-            self.geometry("850x900")
-            self.julia = SetView(
-                self.fig_wrap, self.fig_wrap.fig.add_subplot(1, 1, 1), expr
-            )
-            self.shortcuts = {
-                "z",
-                "x",
-                "r",
-                "s",
-                "t",
-                "d",
-                "left",
-                "right",
-                "1",
-                "2",
-            }
-        else:
+        if d_system.is_family:
             self.geometry("1700x900")
             self.mandel = SetView(
                 self.fig_wrap,
                 self.fig_wrap.fig.add_subplot(1, 2, 1),
-                expr=expr,
-                c_space=True,
+                d_system,
+                mandel_center,
+                mandel_diam,
+                param_space=True,
             )
             self.julia = SetView(
-                self.fig_wrap, self.fig_wrap.fig.add_subplot(1, 2, 2), expr=expr
+                self.fig_wrap,
+                self.fig_wrap.fig.add_subplot(1, 2, 2),
+                d_system,
+                julia_center,
+                julia_diam,
+                init_param=init_param
             )
             self.shortcuts = {
                 "z",
@@ -66,12 +67,38 @@ class SetViewer(Tk):
                 "2",
             }
 
+        else:
+            self.geometry("850x900")
+            self.julia = SetView(
+                self.fig_wrap,
+                self.fig_wrap.fig.add_subplot(1, 1, 1),
+                d_system,
+                julia_center,
+                julia_diam,
+                init_param=init_param
+            )
+            self.shortcuts = {
+                "z",
+                "x",
+                "r",
+                "s",
+                "t",
+                "d",
+                "left",
+                "right",
+                "1",
+                "2",
+            }
+
         self.m_shortcuts = {"z", "x", "r", "s"}
 
         self.put_figure()
-        self.put_options(uses_param=(param != None))
+        self.put_options(uses_param=d_system.is_family)
         self.put_menu()
 
+        self.mainloop()
+
+    def show(self):
         self.mainloop()
 
     def put_figure(self):
@@ -102,7 +129,7 @@ class SetViewer(Tk):
                 row=0, column=2, padx=5, pady=5
             )
             self.c_x = Entry(self.options, width=25)
-            self.c_x.insert(0, self.julia.c.real)
+            self.c_x.insert(0, self.julia.param.real)
             self.c_x.bind("<Return>", self.update_c)
             self.c_x.grid(row=0, column=3, padx=5, pady=5)
 
@@ -110,7 +137,7 @@ class SetViewer(Tk):
                 row=1, column=2, padx=5, pady=5
             )
             self.c_y = Entry(self.options, width=25)
-            self.c_y.insert(0, self.julia.c.imag)
+            self.c_y.insert(0, self.julia.param.imag)
             self.c_y.bind("<Return>", self.update_c)
             self.c_y.grid(row=1, column=3, padx=5, pady=5)
 
@@ -215,7 +242,7 @@ class SetViewer(Tk):
                 view.center = pointer
             elif key == "r":  # resets center and diam
                 view.center = view.init_center
-                view.diam = 4.0
+                view.diam = view.init_diam
 
             if hasattr(self.julia, "pts"):
                 self.julia.pts = self.julia.z_to_img_coords(self.julia.orbit(z))
@@ -230,14 +257,14 @@ class SetViewer(Tk):
 
         elif key == "c" and event.inaxes == self.mandel.ax:
             self.canvas.get_tk_widget().config(cursor="watch")
-            self.julia.c = self.mandel.img_to_z_coords(event.xdata, event.ydata)
+            self.julia.param = self.mandel.img_to_z_coords(event.xdata, event.ydata)
             self.julia.update_plot()
 
             self.c_x.delete(0, END)
-            self.c_x.insert(0, self.julia.c.real)
+            self.c_x.insert(0, self.julia.param.real)
 
             self.c_y.delete(0, END)
-            self.c_y.insert(0, self.julia.c.imag)
+            self.c_y.insert(0, self.julia.param.imag)
 
             if hasattr(self.julia, "pts"):
                 x, y = self.julia.pts[0][0], self.julia.pts[1][0]
@@ -325,18 +352,18 @@ class SetViewer(Tk):
 
     def update_c(self, event):
         self.canvas.get_tk_widget().config(cursor="watch")
-        self.julia.c = complex(float(self.c_x.get()), float(self.c_y.get()))
+        self.julia.param = complex(float(self.c_x.get()), float(self.c_y.get()))
         self.update_plot(which="julia")
 
         if hasattr(self.julia, "pts"):
-                x, y = self.julia.pts[0][0], self.julia.pts[1][0]
-                z = self.julia.img_to_z_coords(x, y)
+            x, y = self.julia.pts[0][0], self.julia.pts[1][0]
+            z = self.julia.img_to_z_coords(x, y)
 
-                self.julia.pts = self.julia.z_to_img_coords(self.julia.orbit(z))
-                xs = self.julia.pts[0][: self.julia.z_iter + 1]
-                ys = self.julia.pts[1][: self.julia.z_iter + 1]
+            self.julia.pts = self.julia.z_to_img_coords(self.julia.orbit(z))
+            xs = self.julia.pts[0][: self.julia.z_iter + 1]
+            ys = self.julia.pts[1][: self.julia.z_iter + 1]
 
-                self.julia.orbit_plt.set_data(xs, ys)
+            self.julia.orbit_plt.set_data(xs, ys)
         self.canvas.get_tk_widget().config(cursor="")
 
     def update_z0(self, event):
@@ -415,7 +442,3 @@ class SetViewer(Tk):
             self.fig_wrap.fig.dpi_scale_trans.inverted()
         )
         self.fig_wrap.fig.savefig(filename, bbox_inches=extent)
-
-
-if __name__ == "__main__":
-    SetViewer("z^2+C", param="C")

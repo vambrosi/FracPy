@@ -5,49 +5,28 @@ from sympy import lambdify
 from numba import jit, prange
 
 
-def parse(expr):
+def jit_function(vars, expr):
     """
-    Takes an expression using usual math conventions and outputs an expression
-    using python math conventions.
+    Takes sympy expressions and outputs fast numba jit-functions.
     """
-    # Add explicity multiplications to match python conventions
+    jitted = jit(nopython=True)(lambdify(vars, expr, "numpy"))
 
-    # The cases below add product symbols to products of variables, constants,
-    # functions or parentheses.
-
-    res = re.sub(
-        "[0-9.]+[A-Za-z\(]", lambda x: f"{x.group(0)[:-1]}*{x.group(0)[-1]}", expr
-    )
-    res = re.sub("[zCI][A-Za-z\(]", lambda x: f"{x.group(0)[0]}*{x.group(0)[1]}", res)
-    res = re.sub("[A-Za-z\)][zCI]", lambda x: f"{x.group(0)[0]}*{x.group(0)[1]}", res)
-    res = res.replace(")(", ")*(")
-
-    # Change power notation to match python conventions.
-    res = res.replace("^", "**")
-    res = res.replace("I", "1.0j")
-
-    return res
-
-
-def to_function(expr: str):
-    """
-    Outputs a numba function given by the input expression. The expression must
-    be in the variable z, and can contain a parameter C.
-    """
-    f = jit(nopython=True)(lambdify(["z", "C"], parse(expr), "numpy"))
-
-    # Make sure errors like division by zero are returned as nan (which can be plotted).
-    def g(z, c):
+    # Make sure errors in the computation are returned as nan (which can be plotted).
+    # Exception is too general, and should be restricted in the future.
+    def jitted_no_errors(*args):
         try:
-            return f(z, c)
+            return jitted(*args)
         except:
             return np.nan
 
-    return jit(nopython=True)(g)
+    return jit(nopython=True)(jitted_no_errors)
 
 
 @jit(nopython=True)
 def orbit(f, z, c, max_iter, radius):
+    """
+    Computes the orbit of a point given a function.
+    """
     iterates = np.zeros(max_iter, dtype=np.complex128)
     for i in range(max_iter):
         iterates[i] = z
@@ -61,6 +40,10 @@ def orbit(f, z, c, max_iter, radius):
 
 @jit(nopython=True)
 def escape_time(f, z, c, max_iters, radius):
+    """
+    Computes how long it takes for a point to escape to infinity.
+    Uses renormalization to make the output continuous.
+    """
     for i in range(max_iters):
         if abs(z) >= radius:
             return ((1 / 256) * (i + 1 - np.log2(np.log2(abs(z))))) % 1
@@ -72,6 +55,9 @@ def escape_time(f, z, c, max_iters, radius):
 
 @jit(nopython=True)
 def escape_period(f, z, c, max_iters, radius):
+    """
+    Computes how long it takes for a point to escape or become close to periodic.
+    """
     z2 = f(z, c)
     inv_radius = 1 / (1000 * radius)
 
@@ -89,7 +75,11 @@ def escape_period(f, z, c, max_iters, radius):
 
 
 @jit(nopython=True, parallel=True)
-def escape_grid(f, center, c, diam, grid, iters, esc_radius, c_space=False, alg="iter"):
+def mandel_grid(f, center, crit, diam, grid, iters, esc_radius, alg="iter"):
+    """
+    Find the escape time of a critical point along a grid of parameters.
+    The critical point depends on the value of the parameter.
+    """
     h = grid.shape[0]
     w = grid.shape[1]
 
@@ -101,37 +91,53 @@ def escape_grid(f, center, c, diam, grid, iters, esc_radius, c_space=False, alg=
     # This is why there is an adjustment of half delta on each direction
     z0 = center - delta * complex(w, h) / 2 + delta * (0.5 + 0.5j)
 
-    # c_space tells if grid is in parameter space or dynamical space
-    # This is true for the mandelbrot set and false for Julia sets.
-
     if alg == "iter":
-        if c_space:
-            for n in prange(w):
-                dx = n * delta
-                for m in prange(h):
-                    dy = m * delta
-                    color = escape_time(f, c, z0 + complex(dx, dy), iters, esc_radius)
-                    grid[m, n] = color
-        else:
-            for n in prange(w):
-                dx = n * delta
-                for m in prange(h):
-                    dy = m * delta
-                    color = escape_time(f, z0 + complex(dx, dy), c, iters, esc_radius)
-                    grid[m, n] = color
+        for n in prange(w):
+            dx = n * delta
+            for m in prange(h):
+                dy = m * delta
+                c = z0 + complex(dx, dy)
+                color = escape_time(f, crit(c), c, iters, esc_radius)
+                grid[m, n] = color
 
     elif alg == "period":
-        if c_space:
-            for n in prange(w):
-                dx = n * delta
-                for m in prange(h):
-                    dy = m * delta
-                    color = escape_period(f, c, z0 + complex(dx, dy), iters, esc_radius)
-                    grid[m, n] = color
-        else:
-            for n in prange(w):
-                dx = n * delta
-                for m in prange(h):
-                    dy = m * delta
-                    color = escape_period(f, z0 + complex(dx, dy), c, iters, esc_radius)
-                    grid[m, n] = color
+        for n in prange(w):
+            dx = n * delta
+            for m in prange(h):
+                dy = m * delta
+                c = z0 + complex(dx, dy)
+                color = escape_period(f, crit(c), c, iters, esc_radius)
+                grid[m, n] = color
+
+
+@jit(nopython=True, parallel=True)
+def julia_grid(f, center, param, diam, grid, iters, esc_radius, alg="iter"):
+    """
+    Find the escape time of points in a grid, given a function to iterate.
+    """
+    h = grid.shape[0]
+    w = grid.shape[1]
+
+    # Assumes that diam is the length of the grid in the x direction
+    delta = diam / w
+
+    # Computes the complex number in the southwest corner of the grid
+    # Assumes dimensions are even so center is not a point in the grid
+    # This is why there is an adjustment of half delta on each direction
+    z0 = center - delta * complex(w, h) / 2 + delta * (0.5 + 0.5j)
+
+    if alg == "iter":
+        for n in prange(w):
+            dx = n * delta
+            for m in prange(h):
+                dy = m * delta
+                color = escape_time(f, z0 + complex(dx, dy), param, iters, esc_radius)
+                grid[m, n] = color
+
+    elif alg == "period":
+        for n in prange(w):
+            dx = n * delta
+            for m in prange(h):
+                dy = m * delta
+                color = escape_period(f, z0 + complex(dx, dy), param, iters, esc_radius)
+                grid[m, n] = color

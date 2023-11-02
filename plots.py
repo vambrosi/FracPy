@@ -4,7 +4,7 @@ from numba import jit
 import matplotlib as mpl
 from matplotlib.figure import Figure
 
-from dynamics import to_function, escape_grid, orbit
+from dynamics import mandel_grid, julia_grid, orbit
 
 
 @jit(nopython=True)
@@ -39,11 +39,14 @@ class SetView:
     Wrapper for plot of a set in the complex plane (Julia or Mandelbrot).
     """
 
-    def __init__(self, fig_wrap, ax, expr="z^2+C", c_space=False):
-        # Initialize all settings with default values
-        self.c_space = c_space  # 'mandel' or 'julia'
-        self.diam = 4.0  # width of the plot
-        self.f = to_function(expr)
+    def __init__(
+        self, fig_wrap, ax, d_system, center, diam, param_space=False, init_param=0.0j
+    ):
+        # Initialize all settings
+        self.d_system = d_system
+        self.init_center = center
+        self.init_diam = diam
+        self.param_space = param_space
 
         self.fig_wrap = fig_wrap
         self.img = np.zeros(
@@ -53,26 +56,32 @@ class SetView:
         self.ax.set_axis_off()
         self.alg = "iter"
 
-        if c_space:
-            self.init_center = -0.5 + 0.0j
-            self.c = 0.0j
+        if param_space:
+            mandel_grid(
+                self.d_system.f,
+                self.center,
+                self.d_system.crit,
+                self.diam,
+                self.img,
+                fig_wrap.max_iter,
+                fig_wrap.esc_radius,
+                alg=self.alg,
+            )
         else:
-            self.init_center = 0.0j
-            self.c = 1.0j
             self.z_iter = 20
             (self.orbit_plt,) = self.ax.plot([], [], "ro-", alpha=0.75)
 
-        escape_grid(
-            self.f,
-            self.center,
-            self.c,
-            self.diam,
-            self.img,
-            fig_wrap.max_iter,
-            fig_wrap.esc_radius,
-            c_space=self.c_space,
-            alg=self.alg,
-        )
+            self.param = init_param
+            julia_grid(
+                self.d_system.f,
+                self.center,
+                self.param,
+                self.diam,
+                self.img,
+                fig_wrap.max_iter,
+                fig_wrap.esc_radius,
+                alg=self.alg,
+            )
 
         self.plt = self.ax.imshow(
             color_shift_scale(
@@ -94,26 +103,46 @@ class SetView:
         self._init_center = center
         self.center = center
 
+    @property
+    def init_diam(self):
+        return self._init_diam
+
+    @init_diam.setter
+    def init_diam(self, diam):
+        self._init_diam = diam
+        self.diam = diam
+
     def orbit(self, z):
         return orbit(
-            self.f, z, self.c, self.fig_wrap.max_iter, self.fig_wrap.esc_radius
+            self.d_system.f, z, self.param, self.fig_wrap.max_iter, self.fig_wrap.esc_radius
         )
 
     def update_plot(self, all=True):
         """
         Plots the set in self.ax (plot reference is stored in self.plt).
         """
-        escape_grid(
-            self.f,
-            self.center,
-            self.c,
-            self.diam,
-            self.img,
-            self.fig_wrap.max_iter,
-            self.fig_wrap.esc_radius,
-            c_space=self.c_space,
-            alg=self.alg,
-        )
+        if self.param_space:
+            mandel_grid(
+                self.d_system.f,
+                self.center,
+                self.d_system.crit,
+                self.diam,
+                self.img,
+                self.fig_wrap.max_iter,
+                self.fig_wrap.esc_radius,
+                alg=self.alg,
+            )
+        else:
+            julia_grid(
+                self.d_system.f,
+                self.center,
+                self.param,
+                self.diam,
+                self.img,
+                self.fig_wrap.max_iter,
+                self.fig_wrap.esc_radius,
+                alg=self.alg,
+            )
 
         self.plt.set_data(
             color_shift_scale(
