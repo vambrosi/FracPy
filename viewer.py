@@ -68,7 +68,7 @@ class SetViewer(Tk):
             }
 
         else:
-            self.geometry("850x900")
+            self.geometry("1100x900")
             self.julia = SetView(
                 self.fig_wrap,
                 self.fig_wrap.fig.add_subplot(1, 1, 1),
