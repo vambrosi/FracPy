@@ -7,6 +7,7 @@ import numpy as np
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 from plots import FigureWrapper, SetView
+import dynamics
 
 if os.name == "nt":
     from ctypes import windll
@@ -18,6 +19,7 @@ class SetViewer(Tk):
     """
     Creates a window to explore a dynamical system (DSystem).
     """
+
     def __init__(
         self,
         d_system,
@@ -51,7 +53,7 @@ class SetViewer(Tk):
                 d_system,
                 julia_center,
                 julia_diam,
-                init_param=init_param
+                init_param=init_param,
             )
             self.shortcuts = {
                 "z",
@@ -65,6 +67,11 @@ class SetViewer(Tk):
                 "right",
                 "1",
                 "2",
+                "3",
+                "4",
+                "5",
+                "6",
+                "7",
             }
 
         else:
@@ -75,7 +82,7 @@ class SetViewer(Tk):
                 d_system,
                 julia_center,
                 julia_diam,
-                init_param=init_param
+                init_param=init_param,
             )
             self.shortcuts = {
                 "z",
@@ -88,6 +95,11 @@ class SetViewer(Tk):
                 "right",
                 "1",
                 "2",
+                "3",
+                "4",
+                "5",
+                "6",
+                "7",
             }
 
         self.m_shortcuts = {"z", "x", "r", "s"}
@@ -96,9 +108,6 @@ class SetViewer(Tk):
         self.put_options(uses_param=d_system.is_family)
         self.put_menu()
 
-        self.mainloop()
-
-    def show(self):
         self.mainloop()
 
     def put_figure(self):
@@ -310,13 +319,19 @@ class SetViewer(Tk):
 
         elif key == "1" and event.inaxes != None:
             view = self.julia if self.julia.ax == event.inaxes else self.mandel
-            view.alg = "iter"
+            view.alg = dynamics.escape_time
             view.update_plot()
             self.canvas.draw_idle()
 
         elif key == "2" and event.inaxes != None:
             view = self.julia if self.julia.ax == event.inaxes else self.mandel
-            view.alg = "period"
+            view.alg = dynamics.escape_partial_floyd
+            view.update_plot()
+            self.canvas.draw_idle()
+
+        elif key == "3" and event.inaxes != None:
+            view = self.julia if self.julia.ax == event.inaxes else self.mandel
+            view.alg = dynamics.escape_floyd
             view.update_plot()
             self.canvas.draw_idle()
 

@@ -20,12 +20,16 @@ class DSystem:
         elif len(expr.free_symbols) == 2:
             param = (expr.free_symbols - {var}).pop()
             self.f = jit_function([var, param], expr)
+            self.df = jit_function([var, param], expr.diff(var))
+            self.d2f = jit_function([var, param], expr.diff(var, 2))
             self.crit = jit_function(param, crit)
             self.is_family = True
 
         # Or else there are no parameters and we use a default value
         else:
             self.f = jit_function([var, "c"], expr)
+            self.df = jit_function([var, "c"], expr.diff(var))
+            self.d2f = jit_function([var, "c"], expr.diff(var, 2))
             self.is_family = False
 
     def view(

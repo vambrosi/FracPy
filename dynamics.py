@@ -1,8 +1,6 @@
-import re
-
 import numpy as np
 from sympy import lambdify
-from numba import jit, prange
+from numba import jit
 
 
 def jit_function(vars, expr):
@@ -52,12 +50,8 @@ def escape_time(f, z, c, max_iters, radius):
 
     return np.nan
 
-
 @jit(nopython=True)
-def escape_period(f, z, c, max_iters, radius):
-    """
-    Computes how long it takes for a point to escape or become close to periodic.
-    """
+def escape_partial_floyd(f, z, c, max_iters, radius):
     z2 = f(z, c)
     inv_radius = 1 / (1000 * radius)
 
@@ -74,70 +68,42 @@ def escape_period(f, z, c, max_iters, radius):
     return np.nan
 
 
-@jit(nopython=True, parallel=True)
-def mandel_grid(f, center, crit, diam, grid, iters, esc_radius, alg="iter"):
-    """
-    Find the escape time of a critical point along a grid of parameters.
-    The critical point depends on the value of the parameter.
-    """
-    h = grid.shape[0]
-    w = grid.shape[1]
+@jit(nopython=True)
+def escape_floyd(f, z, c, max_iters, radius):
+    inv_radius = 1 / (1000 * radius)
+    tortoise = f(z, c)
+    hare = f(f(z, c), c)
 
-    # Assumes that diam is the length of the grid in the x direction
-    delta = diam / w
+    hare_iter = 2
+    while abs(tortoise - hare) >= inv_radius and abs(hare) <= radius and hare_iter < max_iters:
+        tortoise = f(tortoise, c)
+        hare = f(f(hare, c), c)
+        hare_iter += 2
 
-    # Computes the complex number in the southwest corner of the grid
-    # Assumes dimensions are even so center is not a point in the grid
-    # This is why there is an adjustment of half delta on each direction
-    z0 = center - delta * complex(w, h) / 2 + delta * (0.5 + 0.5j)
+    if hare_iter >= max_iters:
+        return np.nan
 
-    if alg == "iter":
-        for n in prange(w):
-            dx = n * delta
-            for m in prange(h):
-                dy = m * delta
-                c = z0 + complex(dx, dy)
-                color = escape_time(f, crit(c), c, iters, esc_radius)
-                grid[m, n] = color
+    if abs(hare) > radius:
+        return (hare_iter + 1 - np.log2(np.log2(abs(hare)))) / 256
 
-    elif alg == "period":
-        for n in prange(w):
-            dx = n * delta
-            for m in prange(h):
-                dy = m * delta
-                c = z0 + complex(dx, dy)
-                color = escape_period(f, crit(c), c, iters, esc_radius)
-                grid[m, n] = color
+    preperiod = 0
+    tortoise = z
 
+    while abs(tortoise - hare) >= inv_radius and preperiod < max_iters:
+        tortoise = f(tortoise, c)
+        hare = f(hare, c)
+        preperiod += 1
 
-@jit(nopython=True, parallel=True)
-def julia_grid(f, center, param, diam, grid, iters, esc_radius, alg="iter"):
-    """
-    Find the escape time of points in a grid, given a function to iterate.
-    """
-    h = grid.shape[0]
-    w = grid.shape[1]
+    if preperiod >= max_iters:
+        return np.nan
 
-    # Assumes that diam is the length of the grid in the x direction
-    delta = diam / w
+    period = 1
+    hare = f(tortoise, c)
+    while abs(tortoise - hare) >= inv_radius and period <= max_iters:
+        hare = f(hare, c)
+        period += 1
 
-    # Computes the complex number in the southwest corner of the grid
-    # Assumes dimensions are even so center is not a point in the grid
-    # This is why there is an adjustment of half delta on each direction
-    z0 = center - delta * complex(w, h) / 2 + delta * (0.5 + 0.5j)
+    if period > max_iters:
+        return np.nan
 
-    if alg == "iter":
-        for n in prange(w):
-            dx = n * delta
-            for m in prange(h):
-                dy = m * delta
-                color = escape_time(f, z0 + complex(dx, dy), param, iters, esc_radius)
-                grid[m, n] = color
-
-    elif alg == "period":
-        for n in prange(w):
-            dx = n * delta
-            for m in prange(h):
-                dy = m * delta
-                color = escape_period(f, z0 + complex(dx, dy), param, iters, esc_radius)
-                grid[m, n] = color
+    return preperiod / (256 *period )

@@ -1,15 +1,65 @@
 import numpy as np
-from numba import jit
+from numba import jit, prange
 
 import matplotlib as mpl
 from matplotlib.figure import Figure
 
-from dynamics import mandel_grid, julia_grid, orbit
+from dynamics import orbit, escape_time
 
 
 @jit(nopython=True)
 def color_shift_scale(img, shift, scale):
     return (scale * img + shift) % 1
+
+
+@jit(nopython=True, parallel=True)
+def mandel_grid(alg, f, df, d2f, center, crit, diam, grid, iters, esc_radius):
+    """
+    Find the escape time of a critical point along a grid of parameters.
+    The critical point depends on the value of the parameter.
+    """
+    h = grid.shape[0]
+    w = grid.shape[1]
+
+    # Assumes that diam is the length of the grid in the x direction
+    delta = diam / w
+
+    # Computes the complex number in the southwest corner of the grid
+    # Assumes dimensions are even so center is not a point in the grid
+    # This is why there is an adjustment of half delta on each direction
+    z0 = center - delta * complex(w, h) / 2 + delta * (0.5 + 0.5j)
+
+    for n in prange(w):
+        dx = n * delta
+        for m in prange(h):
+            dy = m * delta
+            c = z0 + complex(dx, dy)
+            color = alg(f, crit(c), c, iters, esc_radius)
+            grid[m, n] = color
+
+
+@jit(nopython=True, parallel=True)
+def julia_grid(alg, f, df, d2f, center, param, diam, grid, iters, esc_radius):
+    """
+    Find the escape time of points in a grid, given a function to iterate.
+    """
+    h = grid.shape[0]
+    w = grid.shape[1]
+
+    # Assumes that diam is the length of the grid in the x direction
+    delta = diam / w
+
+    # Computes the complex number in the southwest corner of the grid
+    # Assumes dimensions are even so center is not a point in the grid
+    # This is why there is an adjustment of half delta on each direction
+    z0 = center - delta * complex(w, h) / 2 + delta * (0.5 + 0.5j)
+
+    for n in prange(w):
+        dx = n * delta
+        for m in prange(h):
+            dy = m * delta
+            color = alg(f, z0 + complex(dx, dy), param, iters, esc_radius)
+            grid[m, n] = color
 
 
 class FigureWrapper:
@@ -54,18 +104,20 @@ class SetView:
         )
         self.ax = ax
         self.ax.set_axis_off()
-        self.alg = "iter"
+        self.alg = escape_time
 
         if param_space:
             mandel_grid(
+                self.alg,
                 self.d_system.f,
+                self.d_system.df,
+                self.d_system.d2f,
                 self.center,
                 self.d_system.crit,
                 self.diam,
                 self.img,
                 fig_wrap.max_iter,
                 fig_wrap.esc_radius,
-                alg=self.alg,
             )
         else:
             self.z_iter = 20
@@ -73,14 +125,16 @@ class SetView:
 
             self.param = init_param
             julia_grid(
+                self.alg,
                 self.d_system.f,
+                self.d_system.df,
+                self.d_system.d2f,
                 self.center,
                 self.param,
                 self.diam,
                 self.img,
                 fig_wrap.max_iter,
                 fig_wrap.esc_radius,
-                alg=self.alg,
             )
 
         self.plt = self.ax.imshow(
@@ -114,35 +168,44 @@ class SetView:
 
     def orbit(self, z):
         return orbit(
-            self.d_system.f, z, self.param, self.fig_wrap.max_iter, self.fig_wrap.esc_radius
+            self.d_system.f,
+            z,
+            self.param,
+            self.fig_wrap.max_iter,
+            self.fig_wrap.esc_radius,
         )
 
     def update_plot(self, all=True):
         """
         Plots the set in self.ax (plot reference is stored in self.plt).
         """
-        if self.param_space:
-            mandel_grid(
-                self.d_system.f,
-                self.center,
-                self.d_system.crit,
-                self.diam,
-                self.img,
-                self.fig_wrap.max_iter,
-                self.fig_wrap.esc_radius,
-                alg=self.alg,
-            )
-        else:
-            julia_grid(
-                self.d_system.f,
-                self.center,
-                self.param,
-                self.diam,
-                self.img,
-                self.fig_wrap.max_iter,
-                self.fig_wrap.esc_radius,
-                alg=self.alg,
-            )
+        if all:
+            if self.param_space:
+                mandel_grid(
+                    self.alg,
+                    self.d_system.f,
+                    self.d_system.df,
+                    self.d_system.d2f,
+                    self.center,
+                    self.d_system.crit,
+                    self.diam,
+                    self.img,
+                    self.fig_wrap.max_iter,
+                    self.fig_wrap.esc_radius,
+                )
+            else:
+                julia_grid(
+                    self.alg,
+                    self.d_system.f,
+                    self.d_system.df,
+                    self.d_system.d2f,
+                    self.center,
+                    self.param,
+                    self.diam,
+                    self.img,
+                    self.fig_wrap.max_iter,
+                    self.fig_wrap.esc_radius,
+                )
 
         self.plt.set_data(
             color_shift_scale(
