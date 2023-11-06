@@ -1,381 +1,54 @@
-from tkinter import *
-from tkinter.ttk import *
-from tkinter import filedialog
-import numpy as np
+from sympy.abc import z, c
 
-import matplotlib as mpl
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-from matplotlib.figure import Figure
-
-import setplot as sp
+from viewer import SetViewer
+from dynamics import jit_function
 
 
-class FigureWrapper:
+class DSystem:
     """
-    Stores the settings and the Figure object of the main figure.
+    Stores a function f(z) or a one-parameter family of functions f_c(z) as numba functions. The fi
+    If it is a one-parameter family, crit encodes a critical point for f_c(z).
+    (crit can depend on c and it is used to plot the bifurcation locus).
     """
 
-    def __init__(self) -> None:
-        # Initialize all settings with default values
+    def __init__(self, var=z, expr=z**2 + c, crit=0):
+        # First questions are: Are there parameters? If so, how many?
+        if len(expr.free_symbols) > 2:
+            raise Exception("Expression can have only one parameter.")
 
-        # Graphics settings and figure object
-        self.diam_pxs = 1000
-        self.color_shift = 0.0
-        self.color_speed = 1 / 128
-        self.fig = Figure(figsize=(20, 10), layout="compressed")
-        self.cmap = mpl.colormaps.get_cmap("twilight")
-        self.cmap.set_bad(color=self.cmap(0.5))
-        self.stop_pointer = False
+        # If there are two symbols the one that is not the variable is the parameter
+        elif len(expr.free_symbols) == 2:
+            param = (expr.free_symbols - {var}).pop()
+            self.f = jit_function([var, param], expr)
+            self.df = jit_function([var, param], expr.diff(var))
+            self.d2f = jit_function([var, param], expr.diff(var, 2))
+            self.crit = jit_function(param, crit)
+            self.is_family = True
 
-        # Dynamical parameters
-        self.max_iter = 256
-        self.esc_radius = 100.0
-
-
-# There should be only one instance of the class above
-fig_wrap = FigureWrapper()
-
-
-class SetView:
-    """
-    Wrapper for plot of a set in the complex plane (Julia or Mandelbrot).
-    """
-
-    def __init__(self, set_type, ax) -> None:
-        # Initialize all settings with default values
-        self.set_type = set_type  # 'mandel' or 'julia'
-        self._diam = 4.0  # width of the plot
-        self.c = 1.0j  # Parameter for julia (z^2+c)
-
-        if self.set_type == "julia":
-            self._center = 0.0j
-        elif self.set_type == "mandel":
-            self._center = -0.5 + 0.0j
-
-        self.delta = self.diam / fig_wrap.diam_pxs
-        self.sw = self.center + (self.delta / 2 - self.diam / 2) * (1.0 + 1.0j)
-
-        self.img = np.zeros((fig_wrap.diam_pxs, fig_wrap.diam_pxs), dtype=np.float64)
-        self.ax = ax
-        self.ax.set_axis_off()
-
-        sp.escape_plot(
-            self.set_type,
-            self.sw,
-            self.c,
-            self.delta,
-            self.img,
-            fig_wrap.max_iter,
-            fig_wrap.esc_radius,
-            fig_wrap.color_speed,
-        )
-
-        self.plt = self.ax.imshow(
-            self.img, cmap=fig_wrap.cmap, origin="lower", interpolation_stage="rgba"
-        )
-
-        (self.orbit_plt,) = self.ax.plot([], [], "ro-", linewidth=1, alpha=0.75)
-        self.z_iter = 20
-
-    @property
-    def diam(self) -> float:
-        return self._diam
-
-    @diam.setter
-    def diam(self, value):
-        self._diam = value
-        self.delta = self.diam / fig_wrap.diam_pxs
-        self.sw = self.center + (self.delta / 2 - self.diam / 2) * (1.0 + 1.0j)
-
-    @property
-    def center(self) -> complex:
-        return self._center
-
-    @center.setter
-    def center(self, value):
-        self._center = value
-        self.sw = self.center + (self.delta / 2 - self.diam / 2) * (1.0 + 1.0j)
-
-    def update_plot(self):
-        """
-        Plots the set in self.ax (plot reference is stored in self.plt).
-        """
-        sp.escape_plot(
-            self.set_type,
-            self.sw,
-            self.c,
-            self.delta,
-            self.img,
-            fig_wrap.max_iter,
-            fig_wrap.esc_radius,
-            fig_wrap.color_speed,
-        )
-        self.plt.set_data((self.img + fig_wrap.color_shift) % 1)
-
-
-# INITIALIZE MANDELBROT AND JULIA PLOTS
-
-mandel = SetView("mandel", fig_wrap.fig.add_subplot(1, 2, 1))
-julia = SetView("julia", fig_wrap.fig.add_subplot(1, 2, 2))
-
-mandel.update_plot()
-julia.update_plot()
-
-
-# CREATING GUI AND DISPLAYING RESULTS
-
-root = Tk()
-root.wm_title("FracPy Mandelbrot")
-root.rowconfigure(0, weight=1)
-root.columnconfigure(0, weight=1)
-root.geometry("1500x810")
-
-canvas = FigureCanvasTkAgg(fig_wrap.fig, master=root)
-canvas.get_tk_widget().rowconfigure(0, weight=1)
-canvas.get_tk_widget().columnconfigure(0, weight=1)
-canvas.get_tk_widget().grid(row=0, column=0, columnspan=8)
-canvas.draw()
-
-# FUNCTIONS THAT UPDATE VIEW
-
-shortcuts = {"z", "x", "r", "s"}
-
-
-def shortcut_handler(event):
-    key = event.key
-
-    if key in shortcuts and event.inaxes != None:
-        canvas.get_tk_widget().config(cursor="watch")
-        view = julia if julia.ax == event.inaxes else mandel
-
-        if key == "z":  # zooms in
-            view.center = (
-                view.sw + view.delta * complex(event.xdata, event.ydata) + view.center
-            ) / 2
-            view.diam /= 2
-        elif key == "x":  # zooms out
-            view.center = 2 * view.center - (
-                view.sw + view.delta * complex(event.xdata, event.ydata)
-            )
-            view.diam *= 2
-        elif key == "r" and view == julia:  # resets center and diam
-            view.center = 0.0j
-            view.diam = 4.0
-        elif key == "r" and view == mandel:  # resets center and diam
-            view.center = -0.5 + 0.0j
-            view.diam = 4.0
-        elif key == "s":
-            view.center = view.sw + (view.delta * complex(event.xdata, event.ydata))
-
-        view.update_plot()
-        if view == julia and hasattr(julia, "zs"):
-            zs = (julia.zs[: julia.z_iter] - julia.sw) / julia.delta
-            julia.orbit_plt.set_data(zs.real, zs.imag)
-        canvas.draw()
-        canvas.get_tk_widget().config(cursor="")
-
-    elif key == "c" and event.inaxes == mandel.ax:
-        canvas.get_tk_widget().config(cursor="watch")
-        julia.c = mandel.sw + (
-            event.xdata * mandel.delta + event.ydata * mandel.delta * 1.0j
-        )
-
-        julia.update_plot()
-
-        if hasattr(julia, "zs"):
-            delattr(julia, "zs")
-            julia.orbit_plt.set_data([], [])
-
-        canvas.draw()
-        canvas.get_tk_widget().config(cursor="")
-
-    elif key == "t" and event.inaxes == julia.ax:
-        z = julia.sw + (event.xdata * julia.delta + event.ydata * julia.delta * 1.0j)
-
-        julia.zs = sp.orbit(z, julia.c, fig_wrap.max_iter, fig_wrap.esc_radius)
-        zs = (julia.zs[: julia.z_iter] - julia.sw) / julia.delta
-        julia.orbit_plt.set_data(zs.real, zs.imag)
-
-        canvas.draw()
-
-    elif key == "d" and event.inaxes == julia.ax:
-        if hasattr(julia, "zs"):
-            delattr(julia, "zs")
-            julia.orbit_plt.set_data([], [])
-
-        canvas.draw()
-
-    elif key == "e":
-        if fig_wrap.stop_pointer:
-            fig_wrap.stop_pointer = False
-            global pointer_event
-            pointer_event = canvas.mpl_connect(
-                "motion_notify_event", update_julia_center
-            )
+        # Or else there are no parameters and we use a default value
         else:
-            fig_wrap.stop_pointer = True
-            canvas.mpl_disconnect(pointer_event)
+            self.f = jit_function([var, "c"], expr)
+            self.df = jit_function([var, "c"], expr.diff(var))
+            self.d2f = jit_function([var, "c"], expr.diff(var, 2))
+            self.is_family = False
+
+    def view(
+        self,
+        julia_center=0.0j,
+        julia_diam=4.0,
+        mandel_center=0.0j,
+        mandel_diam=4.0,
+        init_param=0.0j,
+    ):
+        return SetViewer(
+            self,
+            julia_center=julia_center,
+            julia_diam=julia_diam,
+            mandel_center=mandel_center,
+            mandel_diam=mandel_diam,
+            init_param=init_param,
+        )
 
 
-def update_julia_center(event):
-    if event.inaxes != None:
-        view = julia if julia.ax == event.inaxes else mandel
-
-        pointer = view.sw + (event.xdata * view.delta + event.ydata * view.delta * 1.0j)
-
-        entry_pointer_x.delete(0, END)
-        entry_pointer_x.insert(0, pointer.real)
-        entry_pointer_y.delete(0, END)
-        entry_pointer_y.insert(0, pointer.imag)
-
-
-def update_color_shift(shift_text):
-    fig_wrap.color_shift = np.float64(shift_text)
-    mandel.plt.set_data((mandel.img + fig_wrap.color_shift) % 1)
-    julia.plt.set_data((julia.img + fig_wrap.color_shift) % 1)
-    canvas.draw()
-    canvas.get_tk_widget().focus_set()
-
-
-def update_color_speed():
-    canvas.get_tk_widget().config(cursor="watch")
-    fig_wrap.color_speed = 1 / (1 << (7 - int(entry_gradient_speed.get())))
-    mandel.update_plot()
-    julia.update_plot()
-    canvas.draw()
-    canvas.get_tk_widget().config(cursor="")
-    canvas.get_tk_widget().focus_set()
-
-
-def update_esc_radius(event):
-    canvas.get_tk_widget().config(cursor="watch")
-    fig_wrap.esc_radius = np.float64(event.widget.get())
-    mandel.update_plot()
-    julia.update_plot()
-    canvas.draw()
-    canvas.get_tk_widget().config(cursor="")
-    canvas.get_tk_widget().focus_set()
-
-
-def update_max_iter(event):
-    canvas.get_tk_widget().config(cursor="watch")
-    fig_wrap.max_iter = np.int64(event.widget.get())
-    mandel.update_plot()
-    julia.update_plot()
-    canvas.draw()
-    canvas.get_tk_widget().config(cursor="")
-    canvas.get_tk_widget().focus_set()
-
-
-def update_z_iter(*args):
-    canvas.get_tk_widget().config(cursor="watch")
-    julia.z_iter = int(entry_z_iter.get())
-    if hasattr(julia, "zs"):
-        zs = (julia.zs[: julia.z_iter] - julia.sw) / julia.delta
-        julia.orbit_plt.set_data(zs.real, zs.imag)
-    canvas.draw()
-    canvas.get_tk_widget().config(cursor="")
-    canvas.get_tk_widget().focus_set()
-
-
-# MENU FUNCTIONS
-
-
-def save_fig_mandel():
-    filetypes = [("All Files", "*.*"), ("PNG", "*.png"), ("JPEG Image", "*.jpg")]
-
-    filename = filedialog.asksaveasfilename(
-        initialfile="mandel.png",
-        defaultextension=".png",
-        filetypes=filetypes,
-    )
-    extent = mandel.ax.get_window_extent().transformed(
-        fig_wrap.fig.dpi_scale_trans.inverted()
-    )
-    fig_wrap.fig.savefig(filename, bbox_inches=extent)
-
-
-def save_fig_julia():
-    filetypes = [("All Files", "*.*"), ("PNG", "*.png"), ("JPEG Image", "*.jpg")]
-
-    filename = filedialog.asksaveasfilename(
-        initialfile="julia.png",
-        defaultextension=".png",
-        filetypes=filetypes,
-    )
-    extent = julia.ax.get_window_extent().transformed(
-        fig_wrap.fig.dpi_scale_trans.inverted()
-    )
-    fig_wrap.fig.savefig(filename, bbox_inches=extent)
-
-
-# GUI OBJECTS AND EVENT HANDLERS
-
-root.option_add("*tearOff", FALSE)
-menu = Menu(root)
-root.config(menu=menu)
-
-m_file = Menu(menu)
-menu.add_cascade(menu=m_file, label="File")
-m_file.add_command(label="Save Mandelbrot plot", command=save_fig_mandel)
-m_file.add_command(label="Save Julia plot", command=save_fig_julia)
-
-options = Frame(root)
-options.grid(row=1, column=0)
-
-label_pointer_x = Label(options, text="Pointer x-coordinate:")
-label_pointer_x.grid(row=0, column=0, padx=5, pady=5)
-entry_pointer_x = Entry(options, width=25)
-entry_pointer_x.grid(row=0, column=1, padx=5, pady=5)
-
-label_pointer_y = Label(options, text="Pointer y-coordinate:")
-label_pointer_y.grid(row=1, column=0, padx=5, pady=5)
-entry_pointer_y = Entry(options, width=25)
-entry_pointer_y.grid(row=1, column=1, padx=5, pady=5)
-
-label_esc_radius = Label(options, text="Escape Radius:")
-label_esc_radius.grid(row=0, column=2, padx=5, pady=5)
-entry_esc_radius = Entry(options, width=10)
-entry_esc_radius.insert(0, fig_wrap.esc_radius)
-entry_esc_radius.bind("<Return>", update_esc_radius)
-entry_esc_radius.grid(row=0, column=3, padx=5, pady=5)
-
-label_max_iter = Label(options, text="Max Iterations:")
-label_max_iter.grid(row=1, column=2, padx=5, pady=5)
-entry_max_iter = Entry(options, width=10)
-entry_max_iter.insert(0, fig_wrap.max_iter)
-entry_max_iter.bind("<Return>", update_max_iter)
-entry_max_iter.grid(row=1, column=3, padx=5, pady=5)
-
-label_color_shift = Label(options, text="Color Gradient Shift:")
-label_color_shift.grid(row=0, column=4, padx=5, pady=5)
-color_shift_slider = Scale(
-    options, from_=0.0, to=1.0, length=50, command=update_color_shift
-)
-color_shift_slider.grid(row=0, column=5, padx=5, pady=5)
-
-label_gradient_speed = Label(options, text="Color Gradient Speed:")
-label_gradient_speed.grid(row=1, column=4, padx=5, pady=5)
-entry_gradient_speed = Spinbox(
-    options,
-    values=[-2, -1, 0, 1, 2],
-    width=5,
-    command=update_color_speed,
-)
-entry_gradient_speed.insert(0, 0)
-entry_gradient_speed.grid(row=1, column=5, padx=5, pady=5)
-
-Label(options, text="Point Iterations:").grid(row=0, column=6, padx=5, pady=5)
-entry_z_iter = Spinbox(
-    options,
-    values=list(range(fig_wrap.max_iter)),
-    width=5,
-    command=update_z_iter,
-)
-entry_z_iter.insert(0, 20)
-entry_z_iter.grid(row=0, column=7, padx=5, pady=5)
-entry_z_iter.bind("<Return>", update_z_iter)
-
-canvas.mpl_connect("key_press_event", shortcut_handler)
-pointer_event = canvas.mpl_connect("motion_notify_event", update_julia_center)
-mainloop()
+if __name__ == "__main__":
+    DSystem(z, z**2 + c).view(mandel_center=-0.5, init_param=1.0j)
