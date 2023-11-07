@@ -37,7 +37,7 @@ def orbit(f, z, c, max_iter, radius):
 
 
 @jit(nopython=True)
-def escape_time(f, z, c, max_iters, radius):
+def escape_time(f, df, z, c, max_iters, radius):
     """
     Computes how long it takes for a point to escape to infinity.
     Uses renormalization to make the output continuous.
@@ -51,7 +51,7 @@ def escape_time(f, z, c, max_iters, radius):
     return np.nan
 
 @jit(nopython=True)
-def escape_partial_floyd(f, z, c, max_iters, radius):
+def escape_partial_floyd(f, df, z, c, max_iters, radius):
     z2 = f(z, c)
     inv_radius = 1 / (1000 * radius)
 
@@ -69,7 +69,7 @@ def escape_partial_floyd(f, z, c, max_iters, radius):
 
 
 @jit(nopython=True)
-def escape_floyd(f, z, c, max_iters, radius):
+def escape_floyd(f, df, z, c, max_iters, radius):
     inv_radius = 1 / (1000 * radius)
     tortoise = f(z, c)
     hare = f(f(z, c), c)
@@ -106,4 +106,4 @@ def escape_floyd(f, z, c, max_iters, radius):
     if period > max_iters:
         return np.nan
 
-    return preperiod / (256 *period )
+    return preperiod / (256 *period ) - abs(df(hare, c)) / 256
