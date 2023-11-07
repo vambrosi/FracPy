@@ -24,6 +24,16 @@ Then you have to create a dynamical system using those variables and then call i
 
 More examples and details can be found on the [`examples.ipynb`](./examples.ipynb) file.
 
+__REMINDER:__ sympy uses python conventions for math expressions, so:
+* `**` is the notation for exponentiation not `^`;
+*  All multiplications must be explicit, _e.g_ ``2(1+z)`` is not valid, but ``2*(1+z)`` is.
+
+Also, you can import some basic functions and some math constants via sympy, for example
+```
+from sympy import E, I, pi, GoldenRatio, sin, cos, sqrt
+```
+imports the euler constant, the imaginary unit, $\pi$, the golden ratio, sine, cosine, and the square root.
+
 ## Shortcuts
 
 * `z + <LeftClick>`: Zooms in on the plot
