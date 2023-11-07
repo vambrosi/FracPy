@@ -41,9 +41,13 @@ All the other settings can be changed by writing on the entries below the plot a
 ## Some Images
 
 Rabbit:
-![./images/rabbit.png](./images/rabbit.png)
+
+<img src='images/rabbit.png' width='1000'>
 
 Julia sets of the family $C\cos(z)$:
-![./images/cos_julia.png](./images/cos_julia.png)
-![./images/cos_julia1.png](./images/cos_julia1.png)
-![./images/cos_julia2.png](./images/cos_julia2.png)
+
+<img src='images/cos_julia.png' width='1000'>
+
+<img src='images/cos_julia1.png' width='1000'>
+
+<img src='images/cos_julia2.png' width='1000'>
