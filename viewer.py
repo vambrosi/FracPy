@@ -369,6 +369,7 @@ class SetViewer(Tk):
 
             self.julia.orbit_plt.set_data(xs, ys)
         self.canvas.get_tk_widget().config(cursor="")
+        self.canvas.get_tk_widget().focus_set()
 
     def update_z0(self, event):
         self.canvas.get_tk_widget().config(cursor="watch")
@@ -381,6 +382,7 @@ class SetViewer(Tk):
         self.julia.orbit_plt.set_data(xs, ys)
         self.canvas.draw_idle()
         self.canvas.get_tk_widget().config(cursor="")
+        self.canvas.get_tk_widget().focus_set()
 
     def update_color_shift(self, pressed_left):
         if pressed_left:
@@ -394,18 +396,21 @@ class SetViewer(Tk):
         self.fig_wrap.color_speed = 1 << (2 + int(self.gradient_speed.get()))
         self.update_plot(which="both", all=False)
         self.canvas.get_tk_widget().config(cursor="")
+        self.canvas.get_tk_widget().focus_set()
 
     def update_esc_radius(self, event):
         self.canvas.get_tk_widget().config(cursor="watch")
         self.fig_wrap.esc_radius = np.float64(event.widget.get())
         self.update_plot(which="both")
         self.canvas.get_tk_widget().config(cursor="")
+        self.canvas.get_tk_widget().focus_set()
 
     def update_max_iter(self, event):
         self.canvas.get_tk_widget().config(cursor="watch")
         self.fig_wrap.max_iter = np.int64(event.widget.get())
         self.update_plot(which="both")
         self.canvas.get_tk_widget().config(cursor="")
+        self.canvas.get_tk_widget().focus_set()
 
     def update_z_iter(self, *args):
         self.canvas.get_tk_widget().config(cursor="watch")
