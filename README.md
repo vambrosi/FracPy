@@ -2,7 +2,7 @@
 
 ## How to use
 
-Clone this repository and install sympy, numpy, matplotlib, and numba. 
+Clone this repository and install sympy, numpy, matplotlib, and numba.
 
 To explore the Mandelbrot and Julia sets given by the family $f(z) = z^2 + C$ just run:
 ```
@@ -16,8 +16,8 @@ To explore the plots of other functions or 1-parameter families of functions, yo
 ```
 Then you have to create a dynamical system using those variables and then call its `view` method.
 ```
->>> expr = z**2 - c * z 
->>> pol = DSystem(z, expr, crit=c / 2) 
+>>> expr = z**2 - c * z
+>>> pol = DSystem(z, expr, crit=c / 2)
 >>> pol.view(mandel_center=-1.0, mandel_diam=8.0)
 ```
 `DSystem` takes as arguments the function variable, the expression that determine the functions (it can have at most one parameter), and a critical value to plot the bifurcation locus (that can depend on the parameter).
@@ -36,4 +36,14 @@ More examples and details can be found on the [`examples.ipynb`](./examples.ipyn
 * `1`, `2`, or `3`: Choose coloring algorithm
 * `<LeftArrow>` and `<RightArrow>`: Shift color gradient
 
-All the other settings can be changed by writing on the entries below the plot and pressing `<Enter>`. 
+All the other settings can be changed by writing on the entries below the plot and pressing `<Enter>`.
+
+## Some Images
+
+Rabbit:
+![./images/rabbit.png](./images/rabbit.png)
+
+Julia sets of the family $C\cos(z)$:
+![./images/cos_julia.png](./images/cos_julia.png)
+![./images/cos_julia1.png](./images/cos_julia1.png)
+![./images/cos_julia2.png](./images/cos_julia2.png)
