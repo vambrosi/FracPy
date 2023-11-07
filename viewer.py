@@ -38,7 +38,7 @@ class SetViewer(Tk):
         self.fig_wrap = FigureWrapper()
 
         if d_system.is_family:
-            self.geometry("1700x900")
+            self.geometry("650x420")
             self.mandel = SetView(
                 self.fig_wrap,
                 self.fig_wrap.fig.add_subplot(1, 2, 1),
@@ -75,7 +75,7 @@ class SetViewer(Tk):
             }
 
         else:
-            self.geometry("1100x900")
+            self.geometry("650x700")
             self.julia = SetView(
                 self.fig_wrap,
                 self.fig_wrap.fig.add_subplot(1, 1, 1),
@@ -124,68 +124,58 @@ class SetViewer(Tk):
         self.options.grid(row=1, column=0)
 
         # Pointer coordinates
-        Label(self.options, text="Pointer x:").grid(row=0, column=0, padx=5, pady=5)
-        self.pointer_x = Entry(self.options, width=25)
+        Label(self.options, text="Pointer:").grid(row=0, column=0, padx=5, sticky="w")
+        self.pointer_x = Entry(self.options, width=20)
         self.pointer_x.grid(row=0, column=1, padx=5, pady=5)
 
-        Label(self.options, text="Pointer y:").grid(row=1, column=0, padx=5, pady=5)
-        self.pointer_y = Entry(self.options, width=25)
-        self.pointer_y.grid(row=1, column=1, padx=5, pady=5)
+        self.pointer_y = Entry(self.options, width=20)
+        self.pointer_y.grid(row=0, column=2, padx=5, pady=5)
 
         # Parameter coordinates
         if uses_param:
-            Label(self.options, text="Parameter x:").grid(
-                row=0, column=2, padx=5, pady=5
+            Label(self.options, text="Parameter:").grid(
+                row=1, column=0, padx=5, sticky="w"
             )
-            self.c_x = Entry(self.options, width=25)
+            self.c_x = Entry(self.options, width=20)
             self.c_x.insert(0, self.julia.param.real)
             self.c_x.bind("<Return>", self.update_c)
-            self.c_x.grid(row=0, column=3, padx=5, pady=5)
+            self.c_x.grid(row=1, column=1, padx=5, pady=5)
 
-            Label(self.options, text="Parameter y:").grid(
-                row=1, column=2, padx=5, pady=5
-            )
-            self.c_y = Entry(self.options, width=25)
+            self.c_y = Entry(self.options, width=20)
             self.c_y.insert(0, self.julia.param.imag)
             self.c_y.bind("<Return>", self.update_c)
-            self.c_y.grid(row=1, column=3, padx=5, pady=5)
+            self.c_y.grid(row=1, column=2, padx=5, pady=5)
 
         # Orbit z0 coordinates
-        Label(self.options, text="Orbit initial x:").grid(
-            row=0, column=3 + uses_param, padx=5, pady=5
+        Label(self.options, text="Orbit start:").grid(
+            row=1 + uses_param, column=0, padx=5, sticky="w"
         )
-        self.z0_x = Entry(self.options, width=25)
+        self.z0_x = Entry(self.options, width=20)
         self.z0_x.bind("<Return>", self.update_z0)
-        self.z0_x.grid(row=0, column=4 + uses_param, padx=5, pady=5)
+        self.z0_x.grid(row=1 + uses_param, column=1, padx=5, pady=5)
 
-        Label(self.options, text="Orbit initial y:").grid(
-            row=1, column=3 + uses_param, padx=5, pady=5
-        )
-        self.z0_y = Entry(self.options, width=25)
+        self.z0_y = Entry(self.options, width=20)
         self.z0_y.bind("<Return>", self.update_z0)
-        self.z0_y.grid(row=1, column=4 + uses_param, padx=5, pady=5)
+        self.z0_y.grid(row=1 + uses_param, column=2, padx=5, pady=5)
 
         # Dynamical parameters
-        Label(self.options, text="Escape Radius:").grid(
-            row=0, column=5 + uses_param, padx=5, pady=5
-        )
+        self.esc_radius_label = Label(self.options, text="Esc Radius:")
+        self.esc_radius_label.grid(row=0, column=3, padx=5, pady=5, sticky="w")
         self.esc_radius = Entry(self.options, width=10)
         self.esc_radius.insert(0, self.fig_wrap.esc_radius)
         self.esc_radius.bind("<Return>", self.update_esc_radius)
-        self.esc_radius.grid(row=0, column=6 + uses_param, padx=5, pady=5)
+        self.esc_radius.grid(row=0, column=4, padx=5, pady=5, sticky="w")
 
-        Label(self.options, text="Max Iterations:").grid(
-            row=1, column=5 + uses_param, padx=5, pady=5
-        )
+        self.max_iter_label = Label(self.options, text="Max Iter:")
+        self.max_iter_label.grid(row=1, column=3, padx=5, pady=5, sticky="w")
         self.max_iter = Entry(self.options, width=10)
         self.max_iter.insert(0, self.fig_wrap.max_iter)
         self.max_iter.bind("<Return>", self.update_max_iter)
-        self.max_iter.grid(row=1, column=6 + uses_param, padx=5, pady=5)
+        self.max_iter.grid(row=1, column=4, padx=5, pady=5, sticky="w")
 
         # Point parameters
-        Label(self.options, text="Point Iterations:").grid(
-            row=0, column=7 + uses_param, padx=5, pady=5
-        )
+        self.z_iter_label = Label(self.options, text="Point Iter:")
+        self.z_iter_label.grid(row=0, column=5, padx=5, sticky="w")
         self.z_iter = Spinbox(
             self.options,
             values=list(range(self.fig_wrap.max_iter)),
@@ -193,13 +183,12 @@ class SetViewer(Tk):
             command=self.update_z_iter,
         )
         self.z_iter.insert(0, 20)
-        self.z_iter.grid(row=0, column=8 + uses_param, padx=5, pady=5)
+        self.z_iter.grid(row=0, column=6, padx=5, pady=5, sticky="w")
         self.z_iter.bind("<Return>", self.update_z_iter)
 
         # Color parameters
-        Label(self.options, text="Color Gradient Speed:").grid(
-            row=1, column=7 + uses_param, padx=5, pady=5
-        )
+        self.gradient_speed_label = Label(self.options, text="Color Speed:")
+        self.gradient_speed_label.grid(row=1, column=5, padx=5, sticky="w")
         self.gradient_speed = Spinbox(
             self.options,
             values=list(range(-2, 6)),
@@ -208,7 +197,7 @@ class SetViewer(Tk):
         )
         self.gradient_speed.insert(0, 0)
         self.gradient_speed.bind("<Return>", self.update_color_speed)
-        self.gradient_speed.grid(row=1, column=8 + uses_param, padx=5, pady=5)
+        self.gradient_speed.grid(row=1, column=6, padx=5, pady=5, sticky="w")
 
     def put_menu(self):
         self.option_add("*tearOff", FALSE)
