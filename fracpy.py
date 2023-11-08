@@ -34,12 +34,15 @@ class DSystem:
 
     def view(
         self,
-        julia_center=0.0j,
+        julia_center=None,
         julia_diam=4.0,
         mandel_center=0.0j,
         mandel_diam=4.0,
         init_param=0.0j,
     ):
+        if julia_center is None:
+            julia_center = self.crit(0)
+
         return SetViewer(
             self,
             julia_center=julia_center,
