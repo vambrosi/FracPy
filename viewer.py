@@ -320,6 +320,12 @@ class SetViewer(Tk):
 
         elif key == "3" and event.inaxes != None:
             view = self.julia if self.julia.ax == event.inaxes else self.mandel
+            view.alg = dynamics.escape_partial_floyd2
+            view.update_plot()
+            self.canvas.draw_idle()
+
+        elif key == "4" and event.inaxes != None:
+            view = self.julia if self.julia.ax == event.inaxes else self.mandel
             view.alg = dynamics.escape_floyd
             view.update_plot()
             self.canvas.draw_idle()

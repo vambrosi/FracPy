@@ -67,6 +67,23 @@ def escape_partial_floyd(f, df, z, c, max_iters, radius):
 
     return np.nan
 
+@jit(nopython=True)
+def escape_partial_floyd2(f, df, z, c, max_iters, radius):
+    z2 = f(z, c)
+    inv_radius = 1 / (1000 * radius)
+
+    for i in range(max_iters):
+        if abs(z) >= radius:
+            return (i + 1 - np.log2(np.log2(abs(z)))) / 256
+
+        if abs(z2 - z) <= inv_radius:
+            return (i + 1 + np.log2(abs(df(z, c)))) / 256
+
+        z = f(z, c)
+        z2 = f(f(z2, c), c)
+
+    return np.nan
+
 
 @jit(nopython=True)
 def escape_floyd(f, df, z, c, max_iters, radius):
