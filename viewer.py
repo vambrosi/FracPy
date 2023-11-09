@@ -116,9 +116,11 @@ class SetViewer(Tk):
         Label(self.options, text="Pointer:").grid(row=0, column=0, padx=5, sticky="w")
         self.pointer_x = Entry(self.options, width=20)
         self.pointer_x.grid(row=0, column=1, padx=5, pady=5)
+        self.pointer_x["state"] = "readonly"
 
         self.pointer_y = Entry(self.options, width=20)
         self.pointer_y.grid(row=0, column=2, padx=5, pady=5)
+        self.pointer_y["state"] = "readonly"
 
         # Parameter coordinates
         if uses_param:
@@ -372,6 +374,7 @@ class SetViewer(Tk):
 
     def update_pointer(self, event):
         if event.inaxes != None:
+            self.pointer_x["state"] = self.pointer_y["state"] = "active"
             view = self.julia if self.julia.ax == event.inaxes else self.mandel
 
             pointer = view.img_to_z_coords(event.xdata, event.ydata)
@@ -380,6 +383,7 @@ class SetViewer(Tk):
             self.pointer_x.insert(0, pointer.real)
             self.pointer_y.delete(0, END)
             self.pointer_y.insert(0, pointer.imag)
+            self.pointer_x["state"] = self.pointer_y["state"] = "readonly"
 
     def update_c(self, event):
         self.canvas.get_tk_widget().config(cursor="watch")
