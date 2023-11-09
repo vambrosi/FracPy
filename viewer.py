@@ -1,4 +1,6 @@
 import os
+from functools import partial
+
 from tkinter import *
 from tkinter.ttk import *
 from tkinter import filedialog
@@ -23,6 +25,7 @@ class SetViewer(Tk):
     def __init__(
         self,
         d_system,
+        alg,
         julia_center,
         julia_diam,
         mandel_center,
@@ -37,12 +40,30 @@ class SetViewer(Tk):
 
         self.fig_wrap = FigureWrapper()
 
+        self.shortcuts = {
+                "z": None,
+                "x": None,
+                "r": None,
+                "s": None,
+                "t": None,
+                "d": None,
+                "left": None,
+                "right": None,
+                "1": "escape_time",
+                "2": "escape_period",
+                "3": "escape_naive_period",
+                "4": "escape_preperiod",
+                "5": "escape_terminal_diff",
+                "6": "escape_terminal_diff_arg",
+            }
+
         if d_system.is_family:
             self.geometry("650x420")
             self.mandel = SetView(
                 self.fig_wrap,
                 self.fig_wrap.fig.add_subplot(1, 2, 1),
                 d_system,
+                alg,
                 mandel_center,
                 mandel_diam,
                 param_space=True,
@@ -51,28 +72,12 @@ class SetViewer(Tk):
                 self.fig_wrap,
                 self.fig_wrap.fig.add_subplot(1, 2, 2),
                 d_system,
+                alg,
                 julia_center,
                 julia_diam,
                 init_param=init_param,
             )
-            self.shortcuts = {
-                "z",
-                "x",
-                "r",
-                "s",
-                "c",
-                "t",
-                "d",
-                "left",
-                "right",
-                "1",
-                "2",
-                "3",
-                "4",
-                "5",
-                "6",
-                "7",
-            }
+            self.shortcuts["c"] = None
 
         else:
             self.geometry("650x700")
@@ -80,27 +85,11 @@ class SetViewer(Tk):
                 self.fig_wrap,
                 self.fig_wrap.fig.add_subplot(1, 1, 1),
                 d_system,
+                alg,
                 julia_center,
                 julia_diam,
                 init_param=init_param,
             )
-            self.shortcuts = {
-                "z",
-                "x",
-                "r",
-                "s",
-                "t",
-                "d",
-                "left",
-                "right",
-                "1",
-                "2",
-                "3",
-                "4",
-                "5",
-                "6",
-                "7",
-            }
 
         self.m_shortcuts = {"z", "x", "r", "s"}
 
@@ -108,6 +97,7 @@ class SetViewer(Tk):
         self.put_options(uses_param=d_system.is_family)
         self.put_menu()
 
+        self.canvas.draw_idle()
         self.mainloop()
 
     def put_figure(self):
@@ -117,7 +107,6 @@ class SetViewer(Tk):
         self.canvas.get_tk_widget().grid(row=0, column=0, columnspan=6)
         self.canvas.mpl_connect("key_press_event", self.shortcut_handler)
         self.canvas.mpl_connect("motion_notify_event", self.update_pointer)
-        self.canvas.draw_idle()
 
     def put_options(self, uses_param=True):
         self.options = Frame(self)
@@ -214,6 +203,52 @@ class SetViewer(Tk):
 
         self.m_file.add_command(label="Save Julia plot", command=self.save_fig_julia)
 
+        self.m_color = Menu(self.menu)
+        self.menu.add_cascade(menu=self.m_color, label="Coloring")
+
+        self.m_color.add_command(
+            label="Escape Time (ET)",
+            command=partial(self.pick_algorithm, name="escape_time"),
+            accelerator="1",
+        )
+        self.m_color.add_command(
+            label="ET + Period",
+            command=partial(self.pick_algorithm, name="escape_period"),
+            accelerator="2",
+        )
+        self.m_color.add_command(
+            label="ET + Naive Preperiod",
+            command=partial(self.pick_algorithm, name="escape_naive_period"),
+            accelerator="3",
+        )
+        self.m_color.add_command(
+            label="ET + Preperiod",
+            command=partial(self.pick_algorithm, name="escape_preperiod"),
+            accelerator="4",
+        )
+        self.m_color.add_command(
+            label="ET + Derivative modulus",
+            command=partial(self.pick_algorithm, name="escape_terminal_diff"),
+            accelerator="5",
+        )
+        self.m_color.add_command(
+            label="ET + Derivative argument",
+            command=partial(self.pick_algorithm, name="escape_terminal_diff_arg"),
+            accelerator="6",
+        )
+
+    def pick_algorithm(self, name, view=None):
+        if view is None:
+            self.julia.alg = getattr(dynamics, name)
+            if hasattr(self, "mandel"):
+                self.mandel.alg = getattr(dynamics, name)
+            self.update_plot()
+
+        elif view == self.julia or view == self.mandel:
+            view.alg = getattr(dynamics, name)
+            view.update_plot()
+            self.canvas.draw_idle()
+
     def shortcut_handler(self, event):
         key = event.key
 
@@ -306,41 +341,15 @@ class SetViewer(Tk):
         elif key == "right":
             self.update_color_shift(pressed_left=False)
 
-        elif key == "1" and event.inaxes != None:
-            view = self.julia if self.julia.ax == event.inaxes else self.mandel
-            view.alg = dynamics.escape_time
-            view.update_plot()
-            self.canvas.draw_idle()
+        elif key in {"1", "2", "3", "4", "5", "6"}:
+            if event.inaxes == self.julia.ax:
+                view = self.julia
+            elif event.inaxes != None:
+                view = self.mandel
+            else:
+                view = None
 
-        elif key == "2" and event.inaxes != None:
-            view = self.julia if self.julia.ax == event.inaxes else self.mandel
-            view.alg = dynamics.escape_period
-            view.update_plot()
-            self.canvas.draw_idle()
-
-        elif key == "3" and event.inaxes != None:
-            view = self.julia if self.julia.ax == event.inaxes else self.mandel
-            view.alg = dynamics.escape_naive_period
-            view.update_plot()
-            self.canvas.draw_idle()
-
-        elif key == "4" and event.inaxes != None:
-            view = self.julia if self.julia.ax == event.inaxes else self.mandel
-            view.alg = dynamics.escape_preperiod
-            view.update_plot()
-            self.canvas.draw_idle()
-
-        elif key == "5" and event.inaxes != None:
-            view = self.julia if self.julia.ax == event.inaxes else self.mandel
-            view.alg = dynamics.escape_terminal_diff
-            view.update_plot()
-            self.canvas.draw_idle()
-
-        elif key == "6" and event.inaxes != None:
-            view = self.julia if self.julia.ax == event.inaxes else self.mandel
-            view.alg = dynamics.escape_terminal_diff_arg
-            view.update_plot()
-            self.canvas.draw_idle()
+            self.pick_algorithm(name=self.shortcuts[key], view=view)
 
     def update_plot(self, which="both", all=True):
         # In case there is only one plot

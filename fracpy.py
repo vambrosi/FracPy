@@ -34,6 +34,7 @@ class DSystem:
 
     def view(
         self,
+        alg = "escape_time",
         julia_center=0.0j,
         julia_diam=4.0,
         mandel_center=0.0j,
@@ -43,6 +44,7 @@ class DSystem:
 
         return SetViewer(
             self,
+            alg = alg,
             julia_center=julia_center,
             julia_diam=julia_diam,
             mandel_center=mandel_center,

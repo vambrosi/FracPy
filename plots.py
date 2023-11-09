@@ -4,7 +4,7 @@ from numba import jit, prange
 import matplotlib as mpl
 from matplotlib.figure import Figure
 
-from dynamics import orbit, escape_time
+import dynamics
 
 
 @jit(nopython=True)
@@ -90,7 +90,7 @@ class SetView:
     """
 
     def __init__(
-        self, fig_wrap, ax, d_system, center, diam, param_space=False, init_param=0.0j
+        self, fig_wrap, ax, d_system, alg, center, diam, param_space=False, init_param=0.0j
     ):
         # Initialize all settings
         self.d_system = d_system
@@ -104,7 +104,7 @@ class SetView:
         )
         self.ax = ax
         self.ax.set_axis_off()
-        self.alg = escape_time
+        self.alg = getattr(dynamics, alg)
 
         if param_space:
             mandel_grid(
@@ -167,7 +167,7 @@ class SetView:
         self.diam = diam
 
     def orbit(self, z):
-        return orbit(
+        return dynamics.orbit(
             self.d_system.f,
             z,
             self.param,
