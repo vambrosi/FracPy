@@ -44,14 +44,15 @@ def escape_time(f, df, z, c, max_iters, radius):
     """
     for i in range(max_iters):
         if abs(z) >= radius:
-            return ((1 / 256) * (i + 1 - np.log2(np.log2(abs(z))))) % 1
+            return (i + 1 - np.log2(np.log2(abs(z)))) / 256
 
         z = f(z, c)
 
     return np.nan
 
+
 @jit(nopython=True)
-def escape_partial_floyd(f, df, z, c, max_iters, radius):
+def escape_naive_period(f, df, z, c, max_iters, radius):
     z2 = f(z, c)
     inv_radius = 1 / (1000 * radius)
 
@@ -60,7 +61,7 @@ def escape_partial_floyd(f, df, z, c, max_iters, radius):
             return (i + 1 - np.log2(np.log2(abs(z)))) / 256
 
         if abs(z2 - z) <= inv_radius:
-            return (i + 1 - np.log2(-np.log2(abs(z2 - z)))) / 256
+            return i / 256
 
         z = f(z, c)
         z2 = f(f(z2, c), c)
@@ -68,59 +69,162 @@ def escape_partial_floyd(f, df, z, c, max_iters, radius):
     return np.nan
 
 @jit(nopython=True)
-def escape_partial_floyd2(f, df, z, c, max_iters, radius):
-    z2 = f(z, c)
+def escape_period(f, df, z, c, max_iters, radius):
     inv_radius = 1 / (1000 * radius)
 
-    for i in range(max_iters):
-        if abs(z) >= radius:
-            return (i + 1 - np.log2(np.log2(abs(z)))) / 256
+    # Find the first n such that z_n is close to z_{2n} or it escapes.
+    # Algorithm stops if n >= max_iters and returns np.nan.
+    tortoise = hare = z
 
-        if abs(z2 - z) <= inv_radius:
-            return (i + 1 + np.log2(abs(df(z, c)))) / 256
+    for n in range(max_iters):
+        # If tortoise escaped returns usual coloring
+        if abs(tortoise) >= radius:
+            return (n + 1 - np.log2(np.log2(abs(tortoise)))) / 256
 
-        z = f(z, c)
-        z2 = f(f(z2, c), c)
-
-    return np.nan
-
-
-@jit(nopython=True)
-def escape_floyd(f, df, z, c, max_iters, radius):
-    inv_radius = 1 / (1000 * radius)
-    tortoise = f(z, c)
-    hare = f(f(z, c), c)
-
-    hare_iter = 2
-    while abs(tortoise - hare) >= inv_radius and abs(hare) <= radius and hare_iter < max_iters:
         tortoise = f(tortoise, c)
         hare = f(f(hare, c), c)
-        hare_iter += 2
 
-    if hare_iter >= max_iters:
+        # If distance is small, exit to compute period and preperiod
+        # This is at the end so that at least one iteration is computed.
+        if abs(hare - tortoise) <= inv_radius:
+            period_multiple = n + 1
+            break
+    else:
         return np.nan
 
-    if abs(hare) > radius:
-        return (hare_iter + 1 - np.log2(np.log2(abs(hare)))) / 256
+    # Check to see when they get close again
+    for n in range(1, period_multiple + 1):
+        tortoise = f(tortoise, c)
 
-    preperiod = 0
+        if abs(hare - tortoise) <= inv_radius:
+            period = n
+            break
+    else:
+        return np.nan
+
+    return period / 32
+
+
+@jit(nopython=True)
+def escape_preperiod(f, df, z, c, max_iters, radius):
+    inv_radius = 1 / (1000 * radius)
+
+    # Find the first n such that z_n is close to z_{2n} or it escapes.
+    # Algorithm stops if n >= max_iters and returns np.nan.
+    tortoise = hare = z
+
+    for n in range(max_iters):
+        # If tortoise escaped returns usual coloring
+        if abs(tortoise) >= radius:
+            return (n + 1 - np.log2(np.log2(abs(tortoise)))) / 256
+
+        tortoise = f(tortoise, c)
+        hare = f(f(hare, c), c)
+
+        # If distance is small, exit to compute period and preperiod
+        # This is at the end so that at least one iteration is computed.
+        if abs(hare - tortoise) <= inv_radius:
+            period_multiple = n + 1
+            break
+    else:
+        return np.nan
+
+    # Check to see when they get close again
+    for n in range(1, period_multiple + 1):
+        tortoise = f(tortoise, c)
+
+        if abs(hare - tortoise) <= inv_radius:
+            period = n
+            break
+    else:
+        return np.nan
+
+    # Finds preperiod
     tortoise = z
 
-    while abs(tortoise - hare) >= inv_radius and preperiod < max_iters:
+    for n in range(period_multiple + 1):
+        if abs(hare - tortoise) <= inv_radius:
+            preperiod = n
+            break
+
         tortoise = f(tortoise, c)
         hare = f(hare, c)
-        preperiod += 1
-
-    if preperiod >= max_iters:
+    else:
         return np.nan
 
-    period = 1
-    hare = f(tortoise, c)
-    while abs(tortoise - hare) >= inv_radius and period <= max_iters:
-        hare = f(hare, c)
-        period += 1
+    return (preperiod / period) / 256
 
-    if period > max_iters:
+
+@jit(nopython=True)
+def escape_terminal_diff(f, df, z, c, max_iters, radius):
+    inv_radius = 1 / (1000 * radius)
+
+    # Find the first n such that z_n is close to z_{2n} or it escapes.
+    # Algorithm stops if n >= max_iters and returns np.nan.
+    tortoise = hare = z
+
+    for n in range(max_iters):
+        # If tortoise escaped returns usual coloring
+        if abs(tortoise) >= radius:
+            return (n + 1 - np.log2(np.log2(abs(tortoise)))) / 256
+
+        tortoise = f(tortoise, c)
+        hare = f(f(hare, c), c)
+
+        # If distance is small, exit to compute period derivative
+        # This is at the end so that at least one iteration is computed.
+        if abs(hare - tortoise) <= inv_radius:
+            period_multiple = n + 1
+            break
+    else:
         return np.nan
 
-    return preperiod / (256 *period ) - abs(df(hare, c)) / 256
+    # Find period attracting factor
+    mult = 1
+    for n in range(1, period_multiple + 1):
+        tortoise = f(tortoise, c)
+        mult *= df(tortoise, c)
+
+        if abs(hare - tortoise) <= inv_radius:
+            break
+    else:
+        return np.nan
+
+    return  abs(mult) / 4
+
+@jit(nopython=True)
+def escape_terminal_diff_arg(f, df, z, c, max_iters, radius):
+    inv_radius = 1 / (1000 * radius)
+
+    # Find the first n such that z_n is close to z_{2n} or it escapes.
+    # Algorithm stops if n >= max_iters and returns np.nan.
+    tortoise = hare = z
+
+    for n in range(max_iters):
+        # If tortoise escaped returns usual coloring
+        if abs(tortoise) >= radius:
+            return (n + 1 - np.log2(np.log2(abs(tortoise)))) / 256
+
+        tortoise = f(tortoise, c)
+        hare = f(f(hare, c), c)
+
+        # If distance is small, exit to compute period derivative
+        # This is at the end so that at least one iteration is computed.
+        if abs(hare - tortoise) <= inv_radius:
+            period_multiple = n + 1
+            break
+    else:
+        return np.nan
+
+    # Find period attracting factor
+    mult = 1
+    for n in range(1, period_multiple + 1):
+        tortoise = f(tortoise, c)
+        mult *= df(tortoise, c)
+
+        if abs(hare - tortoise) <= inv_radius:
+            break
+    else:
+        return np.nan
+
+    return  np.angle(mult) / (4 * 2 * np.pi)

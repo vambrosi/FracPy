@@ -40,10 +40,15 @@ imports the euler constant, the imaginary unit, $\pi$, the golden ratio, sine, c
 * `x + <LeftClick>`: Zooms out on the plot
 * `s + <LeftClick>`: Centers on pointer coordinates
 * `c + <LeftClick>`: Chooses the parameter (only on Mandelbrot plot)
-* `t + <LeftClick>`: Draws orbit of pointer coordinates (only on Julia plot)
+* `t + <LeftClick>`: Draws orbit starting at pointer coordinates (only on Julia plot)
 * `r`: Resets view
 * `d`: Hides orbit
-* `1`, `2`, or `3`: Choose coloring algorithm
+* `1`: Color only escaping orbits
+* `2`: Color bounded orbits by period
+* `3`: Color bounded orbits using $|z_n - z_{2n}|$
+* `4`: Color bounded orbits by preperiod
+* `5`: Color bounded orbits by absolute value of the derivative at attracting cycle
+* `6`: Color bounded orbits by argument of the derivative at attracting cycle
 * `<LeftArrow>` and `<RightArrow>`: Shift color gradient
 
 All the other settings can be changed by writing on the entries below the plot and pressing `<Enter>`.

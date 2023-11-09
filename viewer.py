@@ -314,19 +314,31 @@ class SetViewer(Tk):
 
         elif key == "2" and event.inaxes != None:
             view = self.julia if self.julia.ax == event.inaxes else self.mandel
-            view.alg = dynamics.escape_partial_floyd
+            view.alg = dynamics.escape_period
             view.update_plot()
             self.canvas.draw_idle()
 
         elif key == "3" and event.inaxes != None:
             view = self.julia if self.julia.ax == event.inaxes else self.mandel
-            view.alg = dynamics.escape_partial_floyd2
+            view.alg = dynamics.escape_naive_period
             view.update_plot()
             self.canvas.draw_idle()
 
         elif key == "4" and event.inaxes != None:
             view = self.julia if self.julia.ax == event.inaxes else self.mandel
-            view.alg = dynamics.escape_floyd
+            view.alg = dynamics.escape_preperiod
+            view.update_plot()
+            self.canvas.draw_idle()
+
+        elif key == "5" and event.inaxes != None:
+            view = self.julia if self.julia.ax == event.inaxes else self.mandel
+            view.alg = dynamics.escape_terminal_diff
+            view.update_plot()
+            self.canvas.draw_idle()
+
+        elif key == "6" and event.inaxes != None:
+            view = self.julia if self.julia.ax == event.inaxes else self.mandel
+            view.alg = dynamics.escape_terminal_diff_arg
             view.update_plot()
             self.canvas.draw_idle()
 
