@@ -4,7 +4,7 @@ from numba import jit, prange
 import matplotlib as mpl
 from matplotlib.figure import Figure
 
-import dynamics
+import algorithms
 
 
 @jit(nopython=True)
@@ -34,8 +34,7 @@ def mandel_grid(alg, f, df, d2f, center, crit, diam, grid, iters, esc_radius):
         for m in prange(h):
             dy = m * delta
             c = z0 + complex(dx, dy)
-            color = alg(f, df, crit(c), c, iters, esc_radius)
-            grid[m, n] = color
+            grid[m, n] = alg(f, df, crit(c), c, iters, esc_radius)
 
 
 @jit(nopython=True, parallel=True)
@@ -58,8 +57,7 @@ def julia_grid(alg, f, df, d2f, center, param, diam, grid, iters, esc_radius):
         dx = n * delta
         for m in prange(h):
             dy = m * delta
-            color = alg(f, df, z0 + complex(dx, dy), param, iters, esc_radius)
-            grid[m, n] = color
+            grid[m, n] = alg(f, df, z0 + complex(dx, dy), param, iters, esc_radius)
 
 
 class FigureWrapper:
@@ -104,7 +102,7 @@ class SetView:
         )
         self.ax = ax
         self.ax.set_axis_off()
-        self.alg = getattr(dynamics, alg)
+        self.alg = getattr(algorithms, alg)
 
         if param_space:
             mandel_grid(
@@ -167,7 +165,7 @@ class SetView:
         self.diam = diam
 
     def orbit(self, z):
-        return dynamics.orbit(
+        return algorithms.orbit(
             self.d_system.f,
             z,
             self.param,

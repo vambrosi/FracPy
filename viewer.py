@@ -6,10 +6,15 @@ from tkinter.ttk import *
 from tkinter import filedialog
 
 import numpy as np
+from sympy import sympify
+from sympy.abc import z, c
+from sympy.core.sympify import SympifyError
+
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 from plots import FigureWrapper, SetView
-import dynamics
+from dynamics import DSystem
+import algorithms
 
 if os.name == "nt":
     from ctypes import windll
@@ -17,7 +22,7 @@ if os.name == "nt":
     windll.shcore.SetProcessDpiAwareness(2)
 
 
-class SetViewer(Tk):
+class SetViewer(Toplevel):
     """
     Creates a window to explore a dynamical system (DSystem).
     """
@@ -31,8 +36,16 @@ class SetViewer(Tk):
         mandel_center,
         mandel_diam,
         init_param=0.0j,
+        root=None,
     ):
-        super().__init__()
+        if root is None:
+            self.root = Tk()
+            self.root.withdraw()
+        else:
+            self.root = root
+        Toplevel.__init__(self, root)
+
+        self.wm_protocol("WM_DELETE_WINDOW", self.exit_on_last_window)
 
         self.wm_title("FracPy")
         self.rowconfigure(0, weight=1)
@@ -41,21 +54,23 @@ class SetViewer(Tk):
         self.fig_wrap = FigureWrapper()
 
         self.shortcuts = {
-                "z": None,
-                "x": None,
-                "r": None,
-                "s": None,
-                "t": None,
-                "d": None,
-                "left": None,
-                "right": None,
-                "1": "escape_time",
-                "2": "escape_period",
-                "3": "escape_naive_period",
-                "4": "escape_preperiod",
-                "5": "escape_terminal_diff",
-                "6": "escape_terminal_diff_arg",
-            }
+            "z": None,
+            "x": None,
+            "r": None,
+            "s": None,
+            "t": None,
+            "d": None,
+            "left": None,
+            "right": None,
+            "ctrl+f": self.pick_function,
+            "ctrl+n": self.new_window,
+            "1": "escape_time",
+            "2": "escape_period",
+            "3": "escape_naive_period",
+            "4": "escape_preperiod",
+            "5": "escape_terminal_diff",
+            "6": "escape_terminal_diff_arg",
+        }
 
         if d_system.is_family:
             self.geometry("650x420")
@@ -98,7 +113,31 @@ class SetViewer(Tk):
         self.put_menu()
 
         self.canvas.draw_idle()
-        self.mainloop()
+
+        if root is None:
+            self.update_idletasks()
+            self.root.mainloop()
+
+    def new_window(self):
+        SetViewer(
+            d_system=DSystem(),
+            alg="escape_time",
+            julia_center=0.0j,
+            julia_diam=4.0,
+            mandel_center=-0.5,
+            mandel_diam=4.0,
+            init_param=1.0j,
+            root=self.root,
+        )
+
+    def exit_on_last_window(self):
+        """Destroy the root window when no other windows exist"""
+        self.destroy()
+        if not any([window.winfo_exists() for window in self.root.winfo_children()]):
+            self.root.destroy()
+
+    def quit(self):
+        self.root.destroy()
 
     def put_figure(self):
         self.canvas = FigureCanvasTkAgg(self.fig_wrap.fig, master=self)
@@ -191,20 +230,37 @@ class SetViewer(Tk):
         self.gradient_speed.grid(row=1, column=6, padx=5, pady=5, sticky="w")
 
     def put_menu(self):
+        # Menu bar
         self.option_add("*tearOff", FALSE)
         self.menu = Menu(self)
         self.config(menu=self.menu)
 
+        # File menu
         self.m_file = Menu(self.menu)
         self.menu.add_cascade(menu=self.m_file, label="File")
 
+        self.m_file.add_command(
+            label="New Window", command=self.new_window, accelerator="Ctrl + n"
+        )
         if hasattr(self, "mandel"):
             self.m_file.add_command(
                 label="Save Mandelbrot plot", command=self.save_fig_mandel
             )
 
         self.m_file.add_command(label="Save Julia plot", command=self.save_fig_julia)
+        self.m_file.add_command(label="Quit", command=self.root.destroy)
 
+        # Parameters menu
+        self.m_params = Menu(self.menu)
+        self.menu.add_cascade(menu=self.m_params, label="Parameters")
+
+        self.m_params.add_command(
+            label="Choose function",
+            command=self.pick_function,
+            accelerator="Ctrl + f",
+        )
+
+        # Coloring menu
         self.m_color = Menu(self.menu)
         self.menu.add_cascade(menu=self.m_color, label="Coloring")
 
@@ -241,13 +297,13 @@ class SetViewer(Tk):
 
     def pick_algorithm(self, name, view=None):
         if view is None:
-            self.julia.alg = getattr(dynamics, name)
+            self.julia.alg = getattr(algorithms, name)
             if hasattr(self, "mandel"):
-                self.mandel.alg = getattr(dynamics, name)
+                self.mandel.alg = getattr(algorithms, name)
             self.update_plot()
 
         elif view == self.julia or view == self.mandel:
-            view.alg = getattr(dynamics, name)
+            view.alg = getattr(algorithms, name)
             view.update_plot()
             self.canvas.draw_idle()
 
@@ -291,7 +347,6 @@ class SetViewer(Tk):
             self.canvas.get_tk_widget().config(cursor="")
 
         elif key == "c" and event.inaxes == self.mandel.ax:
-            self.canvas.get_tk_widget().config(cursor="watch")
             self.julia.param = self.mandel.img_to_z_coords(event.xdata, event.ydata)
             self.julia.update_plot()
 
@@ -301,18 +356,9 @@ class SetViewer(Tk):
             self.c_y.delete(0, END)
             self.c_y.insert(0, self.julia.param.imag)
 
-            if hasattr(self.julia, "pts"):
-                x, y = self.julia.pts[0][0], self.julia.pts[1][0]
-                z = self.julia.img_to_z_coords(x, y)
-
-                self.julia.pts = self.julia.z_to_img_coords(self.julia.orbit(z))
-                xs = self.julia.pts[0][: self.julia.z_iter + 1]
-                ys = self.julia.pts[1][: self.julia.z_iter + 1]
-
-                self.julia.orbit_plt.set_data(xs, ys)
+            self.update_c()
 
             self.canvas.draw_idle()
-            self.canvas.get_tk_widget().config(cursor="")
 
         elif key == "t" and event.inaxes == self.julia.ax:
             z = self.julia.img_to_z_coords(event.xdata, event.ydata)
@@ -353,6 +399,9 @@ class SetViewer(Tk):
 
             self.pick_algorithm(name=self.shortcuts[key], view=view)
 
+        else:
+            self.shortcuts[key]()
+
     def update_plot(self, which="both", all=True):
         # In case there is only one plot
         if which == "both" and not hasattr(self, "mandel"):
@@ -385,7 +434,7 @@ class SetViewer(Tk):
             self.pointer_y.insert(0, pointer.imag)
             self.pointer_x["state"] = self.pointer_y["state"] = "readonly"
 
-    def update_c(self, event):
+    def update_c(self, *args):
         self.canvas.get_tk_widget().config(cursor="watch")
         self.julia.param = complex(float(self.c_x.get()), float(self.c_y.get()))
         self.update_plot(which="julia")
@@ -482,3 +531,97 @@ class SetViewer(Tk):
             self.fig_wrap.fig.dpi_scale_trans.inverted()
         )
         self.fig_wrap.fig.savefig(filename, bbox_inches=extent)
+
+    def pick_function(self):
+        w_function = Toplevel(self)
+        w_function.columnconfigure((1,3), weight=1)
+
+        Label(
+            w_function,
+            text="Choose a function or a family of functions (depending on c)",
+        ).grid(row=0, column=0, columnspan=4)
+
+        Label(w_function, text="Function:    f(z) =", justify="right").grid(
+            row=1, column=0, padx=5, pady=5, sticky="e"
+        )
+        function = Entry(w_function, width=60)
+        function.grid(row=1, column=1, columnspan=3, padx=5, pady=5, sticky="we")
+
+        Label(w_function, text="Mandelbrot center:", justify="right").grid(row=2, column=0, padx=5, sticky="e")
+        mandel_center = Entry(w_function)
+        mandel_center.grid(row=2, column=1, padx=5, pady=5, sticky="we")
+
+        Label(w_function, text="Mandelbrot diameter:", justify="right").grid(row=3, column=0, padx=5, sticky="e")
+        mandel_diam = Entry(w_function)
+        mandel_diam.grid(row=3, column=1, padx=5, pady=5, sticky="we")
+
+        Label(w_function, text="Critical Point:", justify="right").grid(row=4, column=0, padx=5, sticky="e")
+        crit = Entry(w_function)
+        crit.grid(row=4, column=1, padx=5, pady=5, sticky="we")
+
+        Label(w_function, text="Julia center:", justify="right").grid(row=2, column=2, padx=5, sticky="e")
+        julia_center = Entry(w_function)
+        julia_center.grid(row=2, column=3, padx=5, pady=5, sticky="we")
+
+        Label(w_function, text="Julia diameter:", justify="right").grid(row=3, column=2, padx=5, sticky="e")
+        julia_diam = Entry(w_function)
+        julia_diam.grid(row=3, column=3, padx=5, pady=5, sticky="we")
+
+        Label(w_function, text="Initial Parameter:", justify="right").grid(row=4, column=2, padx=5, sticky="e")
+        init_param = Entry(w_function)
+        init_param.grid(row=4, column=3, padx=5, pady=5, sticky="we")
+
+        # Insert current parameters on entries
+        function.insert(0, self.julia.d_system.expr)
+
+        def disp(z):
+            return f"{z.real} + {z.imag}*I"
+
+        if hasattr(self, "mandel"):
+            mandel_center.insert(0, disp(self.mandel.center))
+            mandel_diam.insert(0, self.mandel.diam)
+            crit.insert(0, self.mandel.d_system.crit_expr)
+        else:
+            mandel_center.insert(0, "-0.5")
+            mandel_diam.insert(0, "4.0")
+            crit.insert(0, "0.0")
+
+        julia_center.insert(0, disp(self.julia.center))
+        julia_diam.insert(0, self.julia.diam)
+        init_param.insert(0, disp(self.julia.param))
+
+        def close_store(*args):
+            expr = sympify(function.get())
+            try:
+                crit_expr = sympify(crit.get())
+                d_system = DSystem(z, expr, crit=crit_expr)
+            except SympifyError:
+                d_system = DSystem(z, expr)
+
+            julia_center_expr = complex(sympify(julia_center.get()))
+            julia_diam_expr = float(sympify(julia_diam.get()))
+
+            if d_system.is_family:
+                mandel_center_expr = complex(sympify(mandel_center.get()))
+                mandel_diam_expr = float(sympify(mandel_diam.get()))
+                init_param_expr = complex(sympify(init_param.get()))
+                d_system.view(
+                    julia_center=julia_center_expr,
+                    julia_diam=julia_diam_expr,
+                    mandel_center=mandel_center_expr,
+                    mandel_diam=mandel_diam_expr,
+                    init_param=init_param_expr,
+                    root=self.root,
+                )
+            else:
+                d_system.view(
+                    julia_center=julia_center_expr,
+                    julia_diam=julia_diam_expr,
+                    root=self.root,
+                )
+            self.destroy()
+
+        w_function_exit = Button(w_function, text="Plot sets!", command=close_store)
+        w_function_exit.grid(row=5, column=0, columnspan=4, padx=5, pady=5)
+
+        w_function.bind("<Return>", close_store)
