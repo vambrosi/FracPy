@@ -1,6 +1,6 @@
 from sympy.abc import z, c
-
 from algorithms import jit_function
+
 
 class DSystem:
     """
@@ -34,7 +34,6 @@ class DSystem:
         self.expr = expr
         self.crit_expr = crit
 
-
     def view(
         self,
         alg="escape_time",
@@ -43,9 +42,10 @@ class DSystem:
         mandel_center=0.0j,
         mandel_diam=4.0,
         init_param=0.0j,
-        root=None
+        root=None,
     ):
         from viewer import SetViewer
+
         return SetViewer(
             self,
             alg=alg,

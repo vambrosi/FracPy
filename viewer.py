@@ -63,6 +63,7 @@ class SetViewer(Toplevel):
             "left": None,
             "right": None,
             "ctrl+f": self.pick_function,
+            "ctrl+r": self.pick_resolution,
             "ctrl+n": self.new_window,
             "1": "escape_time",
             "2": "escape_period",
@@ -260,6 +261,12 @@ class SetViewer(Toplevel):
             accelerator="Ctrl + f",
         )
 
+        self.m_params.add_command(
+            label="Choose resolution",
+            command=self.pick_resolution,
+            accelerator="Ctrl + r",
+        )
+
         # Coloring menu
         self.m_color = Menu(self.menu)
         self.menu.add_cascade(menu=self.m_color, label="Coloring")
@@ -346,35 +353,37 @@ class SetViewer(Toplevel):
             self.canvas.draw_idle()
             self.canvas.get_tk_widget().config(cursor="")
 
-        elif key == "c" and event.inaxes == self.mandel.ax:
-            self.julia.param = self.mandel.img_to_z_coords(event.xdata, event.ydata)
-            self.julia.update_plot()
+        elif key == "c":
+            if event.inaxes == self.mandel.ax:
+                self.julia.param = self.mandel.img_to_z_coords(event.xdata, event.ydata)
+                self.julia.update_plot()
 
-            self.c_x.delete(0, END)
-            self.c_x.insert(0, self.julia.param.real)
+                self.c_x.delete(0, END)
+                self.c_x.insert(0, self.julia.param.real)
 
-            self.c_y.delete(0, END)
-            self.c_y.insert(0, self.julia.param.imag)
+                self.c_y.delete(0, END)
+                self.c_y.insert(0, self.julia.param.imag)
 
-            self.update_c()
+                self.update_c()
 
-            self.canvas.draw_idle()
+                self.canvas.draw_idle()
 
-        elif key == "t" and event.inaxes == self.julia.ax:
-            z = self.julia.img_to_z_coords(event.xdata, event.ydata)
+        elif key == "t":
+            if event.inaxes == self.julia.ax:
+                z = self.julia.img_to_z_coords(event.xdata, event.ydata)
 
-            self.julia.pts = self.julia.z_to_img_coords(self.julia.orbit(z))
-            xs = self.julia.pts[0][: self.julia.z_iter + 1]
-            ys = self.julia.pts[1][: self.julia.z_iter + 1]
+                self.julia.pts = self.julia.z_to_img_coords(self.julia.orbit(z))
+                xs = self.julia.pts[0][: self.julia.z_iter + 1]
+                ys = self.julia.pts[1][: self.julia.z_iter + 1]
 
-            self.julia.orbit_plt.set_data(xs, ys)
-            self.canvas.draw_idle()
+                self.julia.orbit_plt.set_data(xs, ys)
+                self.canvas.draw_idle()
 
-            self.z0_x.delete(0, END)
-            self.z0_x.insert(0, z.real)
+                self.z0_x.delete(0, END)
+                self.z0_x.insert(0, z.real)
 
-            self.z0_y.delete(0, END)
-            self.z0_y.insert(0, z.imag)
+                self.z0_y.delete(0, END)
+                self.z0_y.insert(0, z.imag)
 
         elif key == "d":
             if hasattr(self.julia, "pts"):
@@ -420,6 +429,23 @@ class SetViewer(Toplevel):
             self.mandel.update_plot(all=all)
             self.canvas.draw_idle()
             self.canvas.get_tk_widget().focus_set()
+
+    def update_resolution(self):
+        if hasattr(self, "mandel"):
+            self.mandel.update_resolution()
+        if hasattr(self.julia, "pts"):
+            x, y = self.julia.pts[0][0], self.julia.pts[1][0]
+            z = self.julia.img_to_z_coords(x, y)
+
+        self.julia.update_resolution()
+        if hasattr(self.julia, "pts"):
+            self.julia.pts = self.julia.z_to_img_coords(self.julia.orbit(z))
+            xs = self.julia.pts[0][: self.julia.z_iter + 1]
+            ys = self.julia.pts[1][: self.julia.z_iter + 1]
+            self.julia.orbit_plt.set_data(xs, ys)
+
+        self.canvas.draw_idle()
+        self.canvas.get_tk_widget().focus_set()
 
     def update_pointer(self, event):
         if event.inaxes != None:
@@ -534,7 +560,7 @@ class SetViewer(Toplevel):
 
     def pick_function(self):
         w_function = Toplevel(self)
-        w_function.columnconfigure((1,3), weight=1)
+        w_function.columnconfigure((1, 3), weight=1)
 
         Label(
             w_function,
@@ -547,27 +573,39 @@ class SetViewer(Toplevel):
         function = Entry(w_function, width=60)
         function.grid(row=1, column=1, columnspan=3, padx=5, pady=5, sticky="we")
 
-        Label(w_function, text="Mandelbrot center:", justify="right").grid(row=2, column=0, padx=5, sticky="e")
+        Label(w_function, text="Mandelbrot center:", justify="right").grid(
+            row=2, column=0, padx=5, sticky="e"
+        )
         mandel_center = Entry(w_function)
         mandel_center.grid(row=2, column=1, padx=5, pady=5, sticky="we")
 
-        Label(w_function, text="Mandelbrot diameter:", justify="right").grid(row=3, column=0, padx=5, sticky="e")
+        Label(w_function, text="Mandelbrot diameter:", justify="right").grid(
+            row=3, column=0, padx=5, sticky="e"
+        )
         mandel_diam = Entry(w_function)
         mandel_diam.grid(row=3, column=1, padx=5, pady=5, sticky="we")
 
-        Label(w_function, text="Critical Point:", justify="right").grid(row=4, column=0, padx=5, sticky="e")
+        Label(w_function, text="Critical Point:", justify="right").grid(
+            row=4, column=0, padx=5, sticky="e"
+        )
         crit = Entry(w_function)
         crit.grid(row=4, column=1, padx=5, pady=5, sticky="we")
 
-        Label(w_function, text="Julia center:", justify="right").grid(row=2, column=2, padx=5, sticky="e")
+        Label(w_function, text="Julia center:", justify="right").grid(
+            row=2, column=2, padx=5, sticky="e"
+        )
         julia_center = Entry(w_function)
         julia_center.grid(row=2, column=3, padx=5, pady=5, sticky="we")
 
-        Label(w_function, text="Julia diameter:", justify="right").grid(row=3, column=2, padx=5, sticky="e")
+        Label(w_function, text="Julia diameter:", justify="right").grid(
+            row=3, column=2, padx=5, sticky="e"
+        )
         julia_diam = Entry(w_function)
         julia_diam.grid(row=3, column=3, padx=5, pady=5, sticky="we")
 
-        Label(w_function, text="Initial Parameter:", justify="right").grid(row=4, column=2, padx=5, sticky="e")
+        Label(w_function, text="Initial Parameter:", justify="right").grid(
+            row=4, column=2, padx=5, sticky="e"
+        )
         init_param = Entry(w_function)
         init_param.grid(row=4, column=3, padx=5, pady=5, sticky="we")
 
@@ -625,3 +663,31 @@ class SetViewer(Toplevel):
         w_function_exit.grid(row=5, column=0, columnspan=4, padx=5, pady=5)
 
         w_function.bind("<Return>", close_store)
+
+    def pick_resolution(self):
+        w_res = Toplevel(self)
+        w_res.columnconfigure((0, 1), weight=1)
+
+        Label(w_res, text="Width (in points):", justify="right").grid(
+            row=0, column=0, padx=5, pady=5
+        )
+        width = Entry(w_res)
+        width.insert(0, self.fig_wrap.width_pxs)
+        width.grid(row=0, column=1, padx=5, pady=5, sticky="we")
+
+        Label(w_res, text="Height (in points):", justify="right").grid(
+            row=1, column=0, padx=5, pady=5
+        )
+        height = Entry(w_res)
+        height.insert(0, self.fig_wrap.height_pxs)
+        height.grid(row=1, column=1, padx=5, pady=5, sticky="we")
+
+        def close_store(*args):
+            self.fig_wrap.width_pxs = int(width.get())
+            self.fig_wrap.height_pxs = int(height.get())
+            w_res.destroy()
+            self.update_resolution()
+
+        w_res_exit = Button(w_res, text="Plot sets!", command=close_store)
+        w_res_exit.grid(row=2, column=0, columnspan=2, padx=5, pady=5)
+        w_res.bind("<Return>", close_store)

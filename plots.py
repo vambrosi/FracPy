@@ -88,7 +88,15 @@ class SetView:
     """
 
     def __init__(
-        self, fig_wrap, ax, d_system, alg, center, diam, param_space=False, init_param=0.0j
+        self,
+        fig_wrap,
+        ax,
+        d_system,
+        alg,
+        center,
+        diam,
+        param_space=False,
+        init_param=0.0j,
     ):
         # Initialize all settings
         self.d_system = d_system
@@ -209,6 +217,49 @@ class SetView:
             color_shift_scale(
                 self.img, self.fig_wrap.color_shift, self.fig_wrap.color_speed
             )
+        )
+
+    def update_resolution(self):
+        self.img = np.zeros(
+            (self.fig_wrap.height_pxs, self.fig_wrap.width_pxs), dtype=np.float64
+        )
+
+        if self.param_space:
+            mandel_grid(
+                self.alg,
+                self.d_system.f,
+                self.d_system.df,
+                self.d_system.d2f,
+                self.center,
+                self.d_system.crit,
+                self.diam,
+                self.img,
+                self.fig_wrap.max_iter,
+                self.fig_wrap.esc_radius,
+            )
+        else:
+            julia_grid(
+                self.alg,
+                self.d_system.f,
+                self.d_system.df,
+                self.d_system.d2f,
+                self.center,
+                self.param,
+                self.diam,
+                self.img,
+                self.fig_wrap.max_iter,
+                self.fig_wrap.esc_radius,
+            )
+
+        self.plt = self.ax.imshow(
+            color_shift_scale(
+                self.img, self.fig_wrap.color_shift, self.fig_wrap.color_speed
+            ),
+            cmap=self.fig_wrap.cmap,
+            vmin=0.0,
+            vmax=1.0,
+            origin="lower",
+            interpolation_stage="rgba",
         )
 
     def img_to_z_coords(self, xdata, ydata):
