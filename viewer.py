@@ -616,17 +616,17 @@ class SetViewer(Toplevel):
             return f"{z.real} + {z.imag}*I"
 
         if hasattr(self, "mandel"):
-            mandel_center.insert(0, disp(self.mandel.center))
-            mandel_diam.insert(0, self.mandel.diam)
+            mandel_center.insert(0, disp(self.mandel.init_center))
+            mandel_diam.insert(0, self.mandel.init_diam)
             crit.insert(0, self.mandel.d_system.crit_expr)
         else:
             mandel_center.insert(0, "-0.5")
             mandel_diam.insert(0, "4.0")
             crit.insert(0, "0.0")
 
-        julia_center.insert(0, disp(self.julia.center))
-        julia_diam.insert(0, self.julia.diam)
-        init_param.insert(0, disp(self.julia.param))
+        julia_center.insert(0, disp(self.julia.init_center))
+        julia_diam.insert(0, self.julia.init_diam)
+        init_param.insert(0, 0.0)
 
         def close_store(*args):
             expr = sympify(function.get())
