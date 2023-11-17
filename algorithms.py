@@ -37,6 +37,55 @@ def orbit(f, z, c, max_iter, radius):
 
 
 @jit(nopython=True)
+def external_ray(f, df, degree, N, D, c, max_iter, radius):
+    pts_count = 10
+    R = np.zeros(pts_count, dtype=np.complex128)
+    curve = []
+
+    for i in range(pts_count):
+        R[i] = radius ** (2 ** (i / pts_count))
+
+    def times_degree(n, d):
+        if d % degree == 0:
+            d = d // degree
+        else:
+            n = n * degree
+        n = n % d
+        return n, d
+
+    z = radius * np.exp(2.0 * np.pi * 1.0j * N / D)
+
+    for n in range(1, max_iter):
+        N, D = times_degree(N, D)
+
+        for i in range(pts_count - 1, -1, -1):
+            w = R[i] * np.exp(2.0 * np.pi * 1.0j * N / D)
+
+            for newton_iter in range(60):
+                z0 = z
+
+                # Iterate function n times
+                dz = 1.0 + 0.0j
+                for _ in range(n):
+                    dz *= df(z, c)
+                    z = f(z, c)
+
+                # Newton iteration
+                if not (1e-100 < abs(dz) < 1e100):
+                    return curve
+
+                adj = (z - w) / dz
+                z = z0 - adj
+
+                if abs(adj) < 1e-35:
+                    break
+
+            curve.append(z)
+
+    return curve
+
+
+@jit(nopython=True)
 def escape_time(f, df, z, c, max_iters, radius):
     """
     Computes how long it takes for a point to escape to infinity.

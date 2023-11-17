@@ -1,3 +1,4 @@
+from sympy import degree
 from sympy.abc import z, c
 from algorithms import jit_function
 
@@ -22,6 +23,7 @@ class DSystem:
             self.d2f = jit_function([var, param], expr.diff(var, 2))
             self.crit = jit_function(param, crit)
             self.is_family = True
+            self.param = param
 
         # Or else there are no parameters and we use a default value
         else:
@@ -33,6 +35,9 @@ class DSystem:
         self.var = var
         self.expr = expr
         self.crit_expr = crit
+
+        if expr.is_polynomial():
+            self.degree = int(degree(expr, gen=var))
 
     def view(
         self,

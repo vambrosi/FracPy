@@ -3,7 +3,7 @@ from functools import partial
 
 from tkinter import *
 from tkinter.ttk import *
-from tkinter import filedialog
+from tkinter import messagebox, filedialog
 
 import numpy as np
 from sympy import sympify
@@ -60,11 +60,13 @@ class SetViewer(Toplevel):
             "s": None,
             "t": None,
             "d": None,
+            "w": self.erase_ray,
             "left": None,
             "right": None,
             "ctrl+f": self.pick_function,
             "ctrl+r": self.pick_resolution,
             "ctrl+n": self.new_window,
+            "e": self.pick_angle,
             "1": "escape_time",
             "2": "escape_period",
             "3": "escape_naive_period",
@@ -267,6 +269,22 @@ class SetViewer(Toplevel):
             accelerator="Ctrl + r",
         )
 
+        # Parameters menu
+        self.m_params = Menu(self.menu)
+        self.menu.add_cascade(menu=self.m_params, label="Annotations")
+
+        self.m_params.add_command(
+            label="Draw external ray",
+            command=self.pick_angle,
+            accelerator="e",
+        )
+
+        self.m_params.add_command(
+            label="Delete external ray",
+            command=self.erase_ray,
+            accelerator="w",
+        )
+
         # Coloring menu
         self.m_color = Menu(self.menu)
         self.menu.add_cascade(menu=self.m_color, label="Coloring")
@@ -301,6 +319,13 @@ class SetViewer(Toplevel):
             command=partial(self.pick_algorithm, name="escape_terminal_diff_arg"),
             accelerator="6",
         )
+
+    def erase_ray(self):
+        if hasattr(self.julia, "ray_pts"):
+            delattr(self.julia, "ray_pts")
+            self.julia.ray_plt.set_data([], [])
+
+        self.canvas.draw_idle()
 
     def pick_algorithm(self, name, view=None):
         if view is None:
@@ -348,6 +373,13 @@ class SetViewer(Toplevel):
                 ys = self.julia.pts[1][: self.julia.z_iter + 1]
 
                 self.julia.orbit_plt.set_data(xs, ys)
+
+            if hasattr(self.julia, "ray_pts"):
+                zs = np.array(self.julia.external_ray())
+                self.julia.ray_pts = self.julia.z_to_img_coords(zs)
+                self.julia.ray_plt.set_data(
+                    self.julia.ray_pts[0], self.julia.ray_pts[1]
+                )
 
             view.update_plot()
             self.canvas.draw_idle()
@@ -443,6 +475,10 @@ class SetViewer(Toplevel):
             xs = self.julia.pts[0][: self.julia.z_iter + 1]
             ys = self.julia.pts[1][: self.julia.z_iter + 1]
             self.julia.orbit_plt.set_data(xs, ys)
+        if hasattr(self.julia, "ray_pts"):
+            zs = np.array(self.julia.external_ray())
+            self.julia.ray_pts = self.julia.z_to_img_coords(zs)
+            self.julia.ray_plt.set_data(self.julia.ray_pts[0], self.julia.ray_pts[1])
 
         self.canvas.draw_idle()
         self.canvas.get_tk_widget().focus_set()
@@ -474,6 +510,13 @@ class SetViewer(Toplevel):
             ys = self.julia.pts[1][: self.julia.z_iter + 1]
 
             self.julia.orbit_plt.set_data(xs, ys)
+
+        if hasattr(self.julia, "ray_pts"):
+            zs = np.array(self.julia.external_ray())
+            self.julia.ray_pts = self.julia.z_to_img_coords(zs)
+            self.julia.ray_plt.set_data(self.julia.ray_pts[0], self.julia.ray_pts[1])
+            self.canvas.draw_idle()
+
         self.canvas.get_tk_widget().config(cursor="")
         self.canvas.get_tk_widget().focus_set()
 
@@ -691,3 +734,34 @@ class SetViewer(Toplevel):
         w_res_exit = Button(w_res, text="Plot sets!", command=close_store)
         w_res_exit.grid(row=2, column=0, columnspan=2, padx=5, pady=5)
         w_res.bind("<Return>", close_store)
+
+    def pick_angle(self):
+        if not hasattr(self.julia.d_system, "degree"):
+            messagebox.showinfo("Error", "Only works if f(z) is a polynomial!")
+            return
+
+        w_angle = Toplevel(self)
+        w_angle.title("Input Angle")
+        w_angle.columnconfigure((0, 1, 2), weight=1)
+
+        Label(w_angle, text="Angle (as a fraction of a turn):", justify="right").grid(
+            row=0, column=0, padx=5, pady=5
+        )
+        N = Entry(w_angle)
+        N.grid(row=0, column=1, padx=5, pady=5, sticky="we")
+        D = Entry(w_angle)
+        D.grid(row=0, column=2, padx=5, pady=5, sticky="we")
+        N.focus_set()
+
+        def close_store(*args):
+            self.julia.angle_N = int(N.get())
+            self.julia.angle_D = int(D.get())
+
+            zs = np.array(self.julia.external_ray())
+            self.julia.ray_pts = self.julia.z_to_img_coords(zs)
+            w_angle.destroy()
+
+            self.julia.ray_plt.set_data(self.julia.ray_pts[0], self.julia.ray_pts[1])
+            self.canvas.draw_idle()
+
+        w_angle.bind("<Return>", close_store)

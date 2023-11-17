@@ -128,6 +128,7 @@ class SetView:
         else:
             self.z_iter = 20
             (self.orbit_plt,) = self.ax.plot([], [], "ro-", alpha=0.75)
+            (self.ray_plt,) = self.ax.plot([], [], "c-", alpha=0.75, linewidth=0.75)
 
             self.param = init_param
             julia_grid(
@@ -176,6 +177,18 @@ class SetView:
         return algorithms.orbit(
             self.d_system.f,
             z,
+            self.param,
+            self.fig_wrap.max_iter,
+            self.fig_wrap.esc_radius,
+        )
+
+    def external_ray(self):
+        return algorithms.external_ray(
+            self.d_system.f,
+            self.d_system.df,
+            self.d_system.degree,
+            self.angle_N,
+            self.angle_D,
             self.param,
             self.fig_wrap.max_iter,
             self.fig_wrap.esc_radius,
