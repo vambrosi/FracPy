@@ -243,7 +243,7 @@ class SetViewer(Toplevel):
         self.menu.add_cascade(menu=self.m_file, label="File")
 
         self.m_file.add_command(
-            label="New Window", command=self.new_window, accelerator="Ctrl + n"
+            label="New Window", command=self.new_window, accelerator="Ctrl-n"
         )
         if hasattr(self, "mandel"):
             self.m_file.add_command(
@@ -260,13 +260,13 @@ class SetViewer(Toplevel):
         self.m_params.add_command(
             label="Choose function",
             command=self.pick_function,
-            accelerator="Ctrl + f",
+            accelerator="Ctrl-f",
         )
 
         self.m_params.add_command(
             label="Choose resolution",
             command=self.pick_resolution,
-            accelerator="Ctrl + r",
+            accelerator="Ctrl-r",
         )
 
         # Parameters menu
