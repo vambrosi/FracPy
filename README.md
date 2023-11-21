@@ -20,7 +20,7 @@ Then you have to create a dynamical system using those variables and then call i
 >>> pol = DSystem(z, expr, crit=c / 2)
 >>> pol.view(mandel_center=-1.0, mandel_diam=8.0)
 ```
-`DSystem` takes as arguments the function variable, the expression that determine the functions (it can have at most one parameter), and a critical value to plot the bifurcation locus (that can depend on the parameter).
+`DSystem` takes as arguments the function variable, the expression that determines the functions (it can have at most one parameter), and a critical value to plot the bifurcation locus (that can depend on the parameter).
 
 More examples and details can be found on the [`examples.ipynb`](./examples.ipynb) file.
 
