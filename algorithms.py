@@ -72,7 +72,7 @@ def external_ray(f, df, degree, N, D, c, max_iter, radius):
 
                 # Newton iteration
                 if not (1e-100 < abs(dz) < 1e100):
-                    return curve
+                    return np.array(curve, dtype=np.complex128)
 
                 adj = (z - w) / dz
                 z = z0 - adj
@@ -82,7 +82,12 @@ def external_ray(f, df, degree, N, D, c, max_iter, radius):
 
             curve.append(z)
 
-    return curve
+    return np.array(curve, dtype=np.complex128)
+
+
+# ----------------------------------------------------------------------------
+# Coloring Algorithms
+# ----------------------------------------------------------------------------
 
 
 @jit(nopython=True)

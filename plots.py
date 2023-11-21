@@ -2,6 +2,7 @@ import numpy as np
 from numba import jit, prange
 
 import matplotlib as mpl
+import matplotlib.patheffects as pe
 from matplotlib.figure import Figure
 
 import algorithms
@@ -128,7 +129,8 @@ class SetView:
         else:
             self.z_iter = 20
             (self.orbit_plt,) = self.ax.plot([], [], "ro-", alpha=0.75)
-            (self.ray_plt,) = self.ax.plot([], [], "c-", alpha=0.75, linewidth=0.75)
+            self.angles = []
+            self.rays = []
 
             self.param = init_param
             julia_grid(
@@ -182,17 +184,50 @@ class SetView:
             self.fig_wrap.esc_radius,
         )
 
-    def external_ray(self):
-        return algorithms.external_ray(
+    def add_external_ray(self, N, D):
+        self.angles.append((N, D))
+        zs = algorithms.external_ray(
             self.d_system.f,
             self.d_system.df,
             self.d_system.degree,
-            self.angle_N,
-            self.angle_D,
+            N,
+            D,
             self.param,
             self.fig_wrap.max_iter,
             self.fig_wrap.esc_radius,
         )
+        xs, ys = self.z_to_img_coords(zs)
+        xlim, ylim = self.ax.get_xlim(), self.ax.get_ylim()
+
+        (ray,) = self.ax.plot(
+            xs,
+            ys,
+            c=mpl.colormaps["twilight"](N / D),
+            lw=1,
+            path_effects=[
+                pe.Stroke(linewidth=2, foreground="b"),
+                pe.Stroke(linewidth=1.5, foreground="w"),
+                pe.Normal(),
+            ],
+        )
+        self.rays.append(ray)
+        self.ax.set_xlim(xlim)
+        self.ax.set_ylim(ylim)
+
+    def update_external_rays(self):
+        for ray in self.rays:
+            ray.remove()
+        self.rays = []
+
+        angles = self.angles.copy()
+        self.angles = []
+
+        for N, D in angles:
+            self.add_external_ray(N, D)
+
+    def erase_last_ray(self):
+        if self.rays:
+            self.rays.pop().remove()
 
     def update_plot(self, all=True):
         """
@@ -274,6 +309,8 @@ class SetView:
             origin="lower",
             interpolation_stage="rgba",
         )
+        self.ax.set_xlim(-0.5, self.fig_wrap.width_pxs -0.5)
+        self.ax.set_ylim(-0.5, self.fig_wrap.height_pxs -0.5)
 
     def img_to_z_coords(self, xdata, ydata):
         h = self.img.shape[0]

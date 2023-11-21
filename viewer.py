@@ -52,7 +52,8 @@ class SetViewer(Tk):
             "s": None,
             "t": None,
             "d": None,
-            "w": self.erase_ray,
+            "w": partial(self.erase_ray, which="last"),
+            "q": partial(self.erase_ray, which="all"),
             "left": None,
             "right": None,
             "ctrl+f": self.pick_function,
@@ -239,14 +240,20 @@ class SetViewer(Tk):
 
         self.m_params.add_command(
             label="Draw external ray",
-            command=self.pick_angle,
+            command=self.shortcuts["e"],
             accelerator="e",
         )
 
         self.m_params.add_command(
-            label="Delete external ray",
-            command=self.erase_ray,
+            label="Erase last external ray",
+            command=self.shortcuts["w"],
             accelerator="w",
+        )
+
+        self.m_params.add_command(
+            label="Erase all external rays",
+            command=self.shortcuts["q"],
+            accelerator="q",
         )
 
         # Coloring menu
@@ -284,10 +291,16 @@ class SetViewer(Tk):
             accelerator="6",
         )
 
-    def erase_ray(self):
-        if hasattr(self.julia, "ray_pts"):
-            delattr(self.julia, "ray_pts")
-            self.julia.ray_plt.set_data([], [])
+    def refresh(self):
+        self.update_plot()
+        self.julia.update_external_rays()
+
+    def erase_ray(self, which="last"):
+        if which == "last":
+            self.julia.erase_last_ray()
+        elif which == "all":
+            while self.julia.rays:
+                self.julia.erase_last_ray()
 
         self.canvas.draw_idle()
 
@@ -338,12 +351,7 @@ class SetViewer(Tk):
 
                 self.julia.orbit_plt.set_data(xs, ys)
 
-            if hasattr(self.julia, "ray_pts"):
-                zs = np.array(self.julia.external_ray())
-                self.julia.ray_pts = self.julia.z_to_img_coords(zs)
-                self.julia.ray_plt.set_data(
-                    self.julia.ray_pts[0], self.julia.ray_pts[1]
-                )
+            self.julia.update_external_rays()
 
             view.update_plot()
             self.canvas.draw_idle()
@@ -443,11 +451,8 @@ class SetViewer(Tk):
             xs = self.julia.pts[0][: self.julia.z_iter + 1]
             ys = self.julia.pts[1][: self.julia.z_iter + 1]
             self.julia.orbit_plt.set_data(xs, ys)
-        if hasattr(self.julia, "ray_pts"):
-            zs = np.array(self.julia.external_ray())
-            self.julia.ray_pts = self.julia.z_to_img_coords(zs)
-            self.julia.ray_plt.set_data(self.julia.ray_pts[0], self.julia.ray_pts[1])
 
+        self.julia.update_external_rays()
         self.canvas.draw_idle()
         self.canvas.get_tk_widget().focus_set()
 
@@ -464,7 +469,7 @@ class SetViewer(Tk):
             self.pointer_y.insert(0, pointer.imag)
             self.pointer_x["state"] = self.pointer_y["state"] = "readonly"
 
-    def update_c(self, *args):
+    def update_c(self, event=None):
         self.canvas.get_tk_widget().config(cursor="watch")
         self.julia.param = complex(float(self.c_x.get()), float(self.c_y.get()))
         self.update_plot(which="julia")
@@ -479,12 +484,8 @@ class SetViewer(Tk):
 
             self.julia.orbit_plt.set_data(xs, ys)
 
-        if hasattr(self.julia, "ray_pts"):
-            zs = np.array(self.julia.external_ray())
-            self.julia.ray_pts = self.julia.z_to_img_coords(zs)
-            self.julia.ray_plt.set_data(self.julia.ray_pts[0], self.julia.ray_pts[1])
-            self.canvas.draw_idle()
-
+        self.julia.update_external_rays()
+        self.canvas.draw_idle()
         self.canvas.get_tk_widget().config(cursor="")
         self.canvas.get_tk_widget().focus_set()
 
@@ -508,7 +509,7 @@ class SetViewer(Tk):
             self.fig_wrap.color_shift += 1 / 32
         self.update_plot(which="both", all=False)
 
-    def update_color_speed(self, *args):
+    def update_color_speed(self, event=None):
         self.canvas.get_tk_widget().config(cursor="watch")
         self.fig_wrap.color_speed = 1 << (2 + int(self.gradient_speed.get()))
         self.update_plot(which="both", all=False)
@@ -529,7 +530,7 @@ class SetViewer(Tk):
         self.canvas.get_tk_widget().config(cursor="")
         self.canvas.get_tk_widget().focus_set()
 
-    def update_z_iter(self, *args):
+    def update_z_iter(self, event=None):
         self.canvas.get_tk_widget().config(cursor="watch")
         self.julia.z_iter = np.int64(self.z_iter.get())
 
@@ -639,7 +640,7 @@ class SetViewer(Tk):
         julia_diam.insert(0, self.julia.init_diam)
         init_param.insert(0, 0.0)
 
-        def close_store(*args):
+        def close_store(event=None):
             expr = sympify(function.get())
             try:
                 crit_expr = sympify(crit.get())
@@ -680,18 +681,18 @@ class SetViewer(Tk):
         Label(w_res, text="Width (in points):", justify="right").grid(
             row=0, column=0, padx=5, pady=5
         )
-        width = Entry(w_res)
+        width = Entry(w_res, width=20)
         width.insert(0, self.fig_wrap.width_pxs)
         width.grid(row=0, column=1, padx=5, pady=5, sticky="we")
 
         Label(w_res, text="Height (in points):", justify="right").grid(
             row=1, column=0, padx=5, pady=5
         )
-        height = Entry(w_res)
+        height = Entry(w_res, width=20)
         height.insert(0, self.fig_wrap.height_pxs)
         height.grid(row=1, column=1, padx=5, pady=5, sticky="we")
 
-        def close_store(*args):
+        def close_store(event=None):
             self.fig_wrap.width_pxs = int(width.get())
             self.fig_wrap.height_pxs = int(height.get())
             w_res.destroy()
@@ -719,15 +720,9 @@ class SetViewer(Tk):
         D.grid(row=0, column=2, padx=5, pady=5, sticky="we")
         N.focus_set()
 
-        def close_store(*args):
-            self.julia.angle_N = int(N.get())
-            self.julia.angle_D = int(D.get())
-
-            zs = np.array(self.julia.external_ray())
-            self.julia.ray_pts = self.julia.z_to_img_coords(zs)
+        def close_store(event=None):
+            self.julia.add_external_ray(int(N.get()), int(D.get()))
             w_angle.destroy()
-
-            self.julia.ray_plt.set_data(self.julia.ray_pts[0], self.julia.ray_pts[1])
             self.canvas.draw_idle()
 
         w_angle.bind("<Return>", close_store)
