@@ -47,7 +47,6 @@ class DSystem:
         mandel_center=0.0j,
         mandel_diam=4.0,
         init_param=0.0j,
-        root=None,
     ):
         from viewer import SetViewer
 
@@ -59,5 +58,4 @@ class DSystem:
             mandel_center=mandel_center,
             mandel_diam=mandel_diam,
             init_param=init_param,
-            root=root,
         )

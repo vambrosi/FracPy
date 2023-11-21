@@ -22,7 +22,7 @@ if os.name == "nt":
     windll.shcore.SetProcessDpiAwareness(2)
 
 
-class SetViewer(Toplevel):
+class SetViewer(Tk):
     """
     Creates a window to explore a dynamical system (DSystem).
     """
@@ -36,16 +36,8 @@ class SetViewer(Toplevel):
         mandel_center,
         mandel_diam,
         init_param=0.0j,
-        root=None,
     ):
-        if root is None:
-            self.root = Tk()
-            self.root.withdraw()
-        else:
-            self.root = root
-        Toplevel.__init__(self, root)
-
-        self.wm_protocol("WM_DELETE_WINDOW", self.exit_on_last_window)
+        Tk.__init__(self)
 
         self.wm_title("FracPy")
         self.rowconfigure(0, weight=1)
@@ -65,7 +57,6 @@ class SetViewer(Toplevel):
             "right": None,
             "ctrl+f": self.pick_function,
             "ctrl+r": self.pick_resolution,
-            "ctrl+n": self.new_window,
             "e": self.pick_angle,
             "1": "escape_time",
             "2": "escape_period",
@@ -115,32 +106,7 @@ class SetViewer(Toplevel):
         self.put_options(uses_param=d_system.is_family)
         self.put_menu()
 
-        self.canvas.draw_idle()
-
-        if root is None:
-            self.update_idletasks()
-            self.root.mainloop()
-
-    def new_window(self):
-        SetViewer(
-            d_system=DSystem(),
-            alg="escape_time",
-            julia_center=0.0j,
-            julia_diam=4.0,
-            mandel_center=-0.5,
-            mandel_diam=4.0,
-            init_param=1.0j,
-            root=self.root,
-        )
-
-    def exit_on_last_window(self):
-        """Destroy the root window when no other windows exist"""
-        self.destroy()
-        if not any([window.winfo_exists() for window in self.root.winfo_children()]):
-            self.root.destroy()
-
-    def quit(self):
-        self.root.destroy()
+        self.update_idletasks()
 
     def put_figure(self):
         self.canvas = FigureCanvasTkAgg(self.fig_wrap.fig, master=self)
@@ -242,16 +208,14 @@ class SetViewer(Toplevel):
         self.m_file = Menu(self.menu)
         self.menu.add_cascade(menu=self.m_file, label="File")
 
-        self.m_file.add_command(
-            label="New Window", command=self.new_window, accelerator="Ctrl-n"
-        )
         if hasattr(self, "mandel"):
             self.m_file.add_command(
                 label="Save Mandelbrot plot", command=self.save_fig_mandel
             )
 
         self.m_file.add_command(label="Save Julia plot", command=self.save_fig_julia)
-        self.m_file.add_command(label="Quit", command=self.root.destroy)
+        self.m_file.add_separator()
+        self.m_file.add_command(label="Quit", command=self.destroy)
 
         # Parameters menu
         self.m_params = Menu(self.menu)
@@ -692,13 +656,11 @@ class SetViewer(Toplevel):
                     mandel_center=mandel_center_expr,
                     mandel_diam=mandel_diam_expr,
                     init_param=init_param_expr,
-                    root=self.root,
                 )
             else:
                 d_system.view(
                     julia_center=julia_center_expr,
                     julia_diam=julia_diam_expr,
-                    root=self.root,
                 )
             self.destroy()
 
