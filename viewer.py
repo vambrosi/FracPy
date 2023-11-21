@@ -364,6 +364,8 @@ class SetViewer(Tk):
 
                 self.canvas.draw_idle()
 
+            return
+
         elif key == "t":
             if event.inaxes == self.julia.ax:
                 z = self.julia.img_to_z_coords(event.xdata, event.ydata)
@@ -380,6 +382,8 @@ class SetViewer(Tk):
 
                 self.z0_y.delete(0, END)
                 self.z0_y.insert(0, z.imag)
+
+            return
 
         elif key == "d":
             if hasattr(self.julia, "pts"):
