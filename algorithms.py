@@ -106,6 +106,27 @@ def escape_time(f, df, z, c, max_iters, radius):
 
 
 @jit(nopython=True)
+def stop_time(f, df, z, c, max_iters, radius):
+    """
+    Computes how long it takes for a point to escape to infinity.
+    Uses renormalization to make the output continuous.
+    """
+    inv_radius = 1 / (1000 * radius)
+
+    for i in range(max_iters):
+        z1 = f(z, c)
+
+        if abs(z1 - z) <= inv_radius:
+            mult = abs(df(z, c))
+            eps = abs(z1 - z)
+            return (i + 1 - np.log(eps) / np.log(mult)) / 256
+
+        z = z1
+
+    return np.nan
+
+
+@jit(nopython=True)
 def escape_naive_period(f, df, z, c, max_iters, radius):
     z2 = f(z, c)
     inv_radius = 1 / (1000 * radius)

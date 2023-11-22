@@ -59,12 +59,22 @@ class SetViewer(Tk):
             "ctrl+f": self.pick_function,
             "ctrl+r": self.pick_resolution,
             "e": self.pick_angle,
-            "1": "escape_time",
-            "2": "escape_period",
-            "3": "escape_naive_period",
-            "4": "escape_preperiod",
-            "5": "escape_terminal_diff",
-            "6": "escape_terminal_diff_arg",
+            "1": {"desc": "Escape Time (ET)", "alg": algorithms.escape_time},
+            "2": {"desc": "Stop Time", "alg": algorithms.stop_time},
+            "3": {"desc": "ET + Period", "alg": algorithms.escape_period},
+            "4": {
+                "desc": "ET + Naive Preperiod",
+                "alg": algorithms.escape_naive_period,
+            },
+            "5": {"desc": "ET + Preperiod", "alg": algorithms.escape_preperiod},
+            "6": {
+                "desc": "ET + Derivative modulus",
+                "alg": algorithms.escape_terminal_diff,
+            },
+            "7": {
+                "desc": "ET + Derivative argument",
+                "alg": algorithms.escape_terminal_diff_arg,
+            },
         }
 
         if d_system.is_family:
@@ -260,36 +270,15 @@ class SetViewer(Tk):
         self.m_color = Menu(self.menu)
         self.menu.add_cascade(menu=self.m_color, label="Coloring")
 
-        self.m_color.add_command(
-            label="Escape Time (ET)",
-            command=partial(self.pick_algorithm, name="escape_time"),
-            accelerator="1",
-        )
-        self.m_color.add_command(
-            label="ET + Period",
-            command=partial(self.pick_algorithm, name="escape_period"),
-            accelerator="2",
-        )
-        self.m_color.add_command(
-            label="ET + Naive Preperiod",
-            command=partial(self.pick_algorithm, name="escape_naive_period"),
-            accelerator="3",
-        )
-        self.m_color.add_command(
-            label="ET + Preperiod",
-            command=partial(self.pick_algorithm, name="escape_preperiod"),
-            accelerator="4",
-        )
-        self.m_color.add_command(
-            label="ET + Derivative modulus",
-            command=partial(self.pick_algorithm, name="escape_terminal_diff"),
-            accelerator="5",
-        )
-        self.m_color.add_command(
-            label="ET + Derivative argument",
-            command=partial(self.pick_algorithm, name="escape_terminal_diff_arg"),
-            accelerator="6",
-        )
+        for i in range(1, 7):
+            key = str(i)
+            color_alg = self.shortcuts[key]
+
+            self.m_color.add_command(
+                label=color_alg["desc"],
+                command=partial(self.pick_algorithm, alg=color_alg["alg"]),
+                accelerator=key,
+            )
 
     def refresh(self):
         self.update_plot()
@@ -304,15 +293,15 @@ class SetViewer(Tk):
 
         self.canvas.draw_idle()
 
-    def pick_algorithm(self, name, view=None):
+    def pick_algorithm(self, alg, view=None):
         if view is None:
-            self.julia.alg = getattr(algorithms, name)
+            self.julia.alg = alg
             if hasattr(self, "mandel"):
-                self.mandel.alg = getattr(algorithms, name)
+                self.mandel.alg = alg
             self.update_plot()
 
         elif view == self.julia or view == self.mandel:
-            view.alg = getattr(algorithms, name)
+            view.alg = alg
             view.update_plot()
             self.canvas.draw_idle()
 
@@ -414,7 +403,7 @@ class SetViewer(Tk):
             else:
                 view = None
 
-            self.pick_algorithm(name=self.shortcuts[key], view=view)
+            self.pick_algorithm(alg=self.shortcuts[key]["alg"], view=view)
 
         else:
             self.shortcuts[key]()
