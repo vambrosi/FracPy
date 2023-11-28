@@ -228,6 +228,7 @@ class SetView:
     def erase_last_ray(self):
         if self.rays:
             self.rays.pop().remove()
+            self.angles.pop()
 
     def update_plot(self, all=True):
         """
