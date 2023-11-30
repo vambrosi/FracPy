@@ -270,7 +270,7 @@ class SetViewer(Tk):
         self.m_color = Menu(self.menu)
         self.menu.add_cascade(menu=self.m_color, label="Coloring")
 
-        for i in range(1, 7):
+        for i in range(1, 8):
             key = str(i)
             color_alg = self.shortcuts[key]
 
@@ -346,41 +346,35 @@ class SetViewer(Tk):
             self.canvas.draw_idle()
             self.canvas.get_tk_widget().config(cursor="")
 
-        elif key == "c":
-            if event.inaxes == self.mandel.ax:
-                self.julia.param = self.mandel.img_to_z_coords(event.xdata, event.ydata)
-                self.julia.update_plot()
+        elif key == "c" and event.inaxes == self.mandel.ax:
+            self.julia.param = self.mandel.img_to_z_coords(event.xdata, event.ydata)
+            self.julia.update_plot()
 
-                self.c_x.delete(0, END)
-                self.c_x.insert(0, self.julia.param.real)
+            self.c_x.delete(0, END)
+            self.c_x.insert(0, self.julia.param.real)
 
-                self.c_y.delete(0, END)
-                self.c_y.insert(0, self.julia.param.imag)
+            self.c_y.delete(0, END)
+            self.c_y.insert(0, self.julia.param.imag)
 
-                self.update_c()
+            self.update_c()
 
-                self.canvas.draw_idle()
+            self.canvas.draw_idle()
 
-            return
+        elif key == "t" and event.inaxes == self.julia.ax:
+            z = self.julia.img_to_z_coords(event.xdata, event.ydata)
 
-        elif key == "t":
-            if event.inaxes == self.julia.ax:
-                z = self.julia.img_to_z_coords(event.xdata, event.ydata)
+            self.julia.pts = self.julia.z_to_img_coords(self.julia.orbit(z))
+            xs = self.julia.pts[0][: self.julia.z_iter + 1]
+            ys = self.julia.pts[1][: self.julia.z_iter + 1]
 
-                self.julia.pts = self.julia.z_to_img_coords(self.julia.orbit(z))
-                xs = self.julia.pts[0][: self.julia.z_iter + 1]
-                ys = self.julia.pts[1][: self.julia.z_iter + 1]
+            self.julia.orbit_plt.set_data(xs, ys)
+            self.canvas.draw_idle()
 
-                self.julia.orbit_plt.set_data(xs, ys)
-                self.canvas.draw_idle()
+            self.z0_x.delete(0, END)
+            self.z0_x.insert(0, z.real)
 
-                self.z0_x.delete(0, END)
-                self.z0_x.insert(0, z.real)
-
-                self.z0_y.delete(0, END)
-                self.z0_y.insert(0, z.imag)
-
-            return
+            self.z0_y.delete(0, END)
+            self.z0_y.insert(0, z.imag)
 
         elif key == "d":
             if hasattr(self.julia, "pts"):
@@ -395,7 +389,7 @@ class SetViewer(Tk):
         elif key == "right":
             self.update_color_shift(pressed_left=False)
 
-        elif key in {"1", "2", "3", "4", "5", "6"}:
+        elif key in {"1", "2", "3", "4", "5", "6", "7"}:
             if event.inaxes == self.julia.ax:
                 view = self.julia
             elif event.inaxes != None:
@@ -406,7 +400,8 @@ class SetViewer(Tk):
             self.pick_algorithm(alg=self.shortcuts[key]["alg"], view=view)
 
         else:
-            self.shortcuts[key]()
+            if not self.shortcuts[key] is None:
+                self.shortcuts[key]()
 
     def update_plot(self, which="both", all=True):
         # In case there is only one plot
