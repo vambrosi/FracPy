@@ -126,6 +126,7 @@ class SetView:
                 fig_wrap.max_iter,
                 fig_wrap.esc_radius,
             )
+            (self.overlay,) = self.ax.plot([], [], "ro-", alpha=0.75, markersize=3)
         else:
             self.z_iter = 20
             (self.orbit_plt,) = self.ax.plot([], [], "ro-", alpha=0.75)

@@ -99,6 +99,9 @@ class SetViewer(Tk):
             )
             self.shortcuts["c"] = None
 
+            x, y = self.mandel.z_to_img_coords(self.julia.param)
+            self.mandel.overlay.set_data(x, y)
+
         else:
             self.geometry("650x700")
             self.julia = SetView(
@@ -340,6 +343,10 @@ class SetViewer(Tk):
 
                 self.julia.orbit_plt.set_data(xs, ys)
 
+            if view == self.mandel:
+                x, y = self.mandel.z_to_img_coords(self.julia.param)
+                self.mandel.overlay.set_data(x, y)
+
             self.julia.update_external_rays()
 
             view.update_plot()
@@ -467,6 +474,9 @@ class SetViewer(Tk):
             ys = self.julia.pts[1][: self.julia.z_iter + 1]
 
             self.julia.orbit_plt.set_data(xs, ys)
+
+        x, y = self.mandel.z_to_img_coords(self.julia.param)
+        self.mandel.overlay.set_data(x, y)
 
         self.julia.update_external_rays()
         self.canvas.draw_idle()
