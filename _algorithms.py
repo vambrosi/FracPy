@@ -37,24 +37,20 @@ def orbit(f_u, f_v, z, c, max_iter, radius):
             iterates = iterates[:i]
             break
 
-        u1 = f_u(u1, v1, c)
+        temp = f_u(u1, v1, c)
         v1 = f_v(u1, v1, c)
+        u1 = temp
 
-        u2 = f_u(u2, v2, c)
-        v2 = f_v(u2, v2, c)
-        u2 = f_u(u2, v2, c)
-        v2 = f_v(u2, v2, c)
+        for j in range(2):
+            temp = f_u(u2, v2, c)
+            v2 = f_v(u2, v2, c)
+            u2 = temp
 
-        dist2, pt1_2, pt2_2 = d2(u1, v1, u2, v2)
+        dist2, u1, v1, u2, v2 = d2_and_normalize(u1, v1, u2, v2)
 
         if dist2 <= inv_radius_sqr:
             iterates = iterates[:i]
             break
-
-        u1 /= sqrt(pt1_2)
-        v1 /= sqrt(pt1_2)
-        u2 /= sqrt(pt2_2)
-        v2 /= sqrt(pt2_2)
 
     return iterates
 
@@ -67,29 +63,26 @@ def orbit_proj(f_u, f_v, z, c, max_iter, radius):
     iterates = np.zeros((max_iter, 2), dtype=np.complex128)
     inv_radius_sqr = 1 / radius**2
 
-    u2, v2 = u1, v1 = z, 1
+    u1 = u2 = z
+    v1 = v2 = 1
     for i in range(max_iter):
         iterates[i, 0] = u1
         iterates[i, 1] = v1
 
-        u1 = f_u(u1, v1, c)
+        temp = f_u(u1, v1, c)
         v1 = f_v(u1, v1, c)
+        u1 = temp
 
-        u2 = f_u(u2, v2, c)
-        v2 = f_v(u2, v2, c)
-        u2 = f_u(u2, v2, c)
-        v2 = f_v(u2, v2, c)
+        for j in range(2):
+            temp = f_u(u2, v2, c)
+            v2 = f_v(u2, v2, c)
+            u2 = temp
 
-        dist2, pt1_2, pt2_2 = d2(u1, v1, u2, v2)
+        dist2, u1, v1, u2, v2 = d2_and_normalize(u1, v1, u2, v2)
 
         if dist2 <= inv_radius_sqr:
             iterates = iterates[:i, :]
             break
-
-        u1 /= sqrt(pt1_2)
-        v1 /= sqrt(pt1_2)
-        u2 /= sqrt(pt2_2)
-        v2 /= sqrt(pt2_2)
 
     return iterates
 
@@ -200,38 +193,96 @@ def naive_period(f_u, f_v, z, c, max_iters, radius):
     inv_radius_sqr = 1 / radius**2
 
     for i in range(max_iters):
-        u1 = f_u(u1, v1, c)
+        temp = f_u(u1, v1, c)
         v1 = f_v(u1, v1, c)
+        u1 = temp
 
-        u2 = f_u(u2, v2, c)
-        v2 = f_v(u2, v2, c)
-        u2 = f_u(u2, v2, c)
-        v2 = f_v(u2, v2, c)
+        for j in range(2):
+            temp = f_u(u2, v2, c)
+            v2 = f_v(u2, v2, c)
+            u2 = temp
 
-        dist2, pt1_2, pt2_2 = d2(u1, v1, u2, v2)
+        dist2, u1, v1, u2, v2 = d2_and_normalize(u1, v1, u2, v2)
 
         if dist2 <= inv_radius_sqr:
-            return i / 128 % 1
-
-        u1 /= sqrt(pt1_2)
-        v1 /= sqrt(pt1_2)
-        u2 /= sqrt(pt2_2)
-        v2 /= sqrt(pt2_2)
+            return (i + 1 - np.log2(-np.log(dist2)/2)) / 128 % 1
 
     return np.nan
 
+@jit(nopython=True)
+def escape_preperiod(f_u, f_v, df_u, z, c, max_iters, radius):
+    inv_radius = 1 / (1000 * radius)
+
+    # Find the first n such that z_n is close to z_{2n} or it escapes.
+    # Algorithm stops if n >= max_iters and returns np.nan.
+    tortoise = hare = z, 1
+
+    for n in range(max_iters):
+        tortoise = f_u(*tortoise, c), f_v(*tortoise, c)
+        hare = f(f(hare, c), c)
+
+        # If distance is small, exit to compute period and preperiod
+        # This is at the end so that at least one iteration is computed.
+        if abs(hare - tortoise) <= inv_radius:
+            period_multiple = n + 1
+            break
+    else:
+        return np.nan
+
+    # Check to see when they get close again
+    mult = 1
+    for n in range(1, period_multiple + 1):
+        tortoise = f(tortoise, c)
+        mult *= df(tortoise, c)
+
+        if abs(hare - tortoise) <= inv_radius:
+            period = n
+            break
+    else:
+        return np.nan
+
+    # Finds preperiod
+    tortoise = z
+
+    for n in range(max_iters):
+        if abs(hare - tortoise) <= inv_radius:
+            preperiod = n
+            break
+
+        tortoise = f(tortoise, c)
+        hare = f(hare, c)
+    else:
+        return np.nan
+
+    # Hare is close to limit point, so eps stands for the distance to limit point
+    eps = abs(hare - tortoise)
+
+    return (preperiod / period + 1 - np.log(eps) / np.log(abs(mult))) / 256
+
 
 @jit(nopython=True)
-def d2(u1, v1, u2, v2):
-    cp = v2 * u1 - u2 * v1
-    cp_2 = cp.real * cp.real + cp.imag * cp.imag
+def abs2(z):
+    return z.real * z.real + z.imag * z.imag
 
-    u1_2 = u1.real * u1.real + u1.imag * u1.imag
-    v1_2 = v1.real * v1.real + v1.imag * v1.imag
+
+@jit(nopython=True)
+def d2_and_normalize(u1, v1, u2, v2):
+    # Temporary variables
+    diff = v2 * u1 - u2 * v1
+    dist2 = abs2(diff)
+
+    u1_2 = abs2(u1)
+    v1_2 = abs2(v1)
     pt1_2 = u1_2 + v1_2
 
-    u2_2 = u2.real * u2.real + u2.imag * u2.imag
-    v2_2 = v2.real * v2.real + v2.imag * v2.imag
+    u2_2 = abs2(u2)
+    v2_2 = abs2(v2)
     pt2_2 = u2_2 + v2_2
 
-    return cp_2 / (pt1_2 * pt2_2), pt1_2, pt2_2
+    # Normalize points
+    u1_norm = u1 / sqrt(pt1_2)
+    v1_norm = v1 / sqrt(pt1_2)
+    u2_norm = u2 / sqrt(pt2_2)
+    v2_norm = v2 / sqrt(pt2_2)
+
+    return dist2 / (pt1_2 + pt2_2), u1_norm, v1_norm, u2_norm, v2_norm

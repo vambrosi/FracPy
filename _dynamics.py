@@ -35,18 +35,17 @@ class RationalMap:
 
         # Or else there are no parameters and we use a default value
         else:
-            self.f = projectivize(var, c, expr)
-            self.df = projectivize(var, c, expr.diff(var))
+            self.f = projectivize(var, proj_vars, expr)
+            self.df = projectivize(var, proj_vars, expr.diff(var))
 
             inputs = list(proj_vars).append("c")
 
             n, d = fraction(self.f)
-            self._fn = jit_function(inputs, n)
-            self._fd = jit_function(inputs, d)
-
+            self._f = jit_function(inputs, n), jit_function(inputs, d)
             n, d = fraction(self.df)
-            self._dfn = jit_function(inputs, n)
-            self._dfd = jit_function(inputs, d)
+            self._df = jit_function(inputs, n), jit_function(inputs, d)
+            n, d = fraction(self.crit)
+            self._crit = jit_function(param, crit)
 
             self.is_family = False
             self.var = var
