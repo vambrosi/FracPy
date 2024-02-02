@@ -343,7 +343,7 @@ class SetViewer(Tk):
 
                 self.julia.orbit_plt.set_data(xs, ys)
 
-            if view == self.mandel:
+            if hasattr(self, "mandel") and view == self.mandel:
                 x, y = self.mandel.z_to_img_coords(self.julia.param)
                 self.mandel.overlay.set_data(x, y)
 
